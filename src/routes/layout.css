@@ -1,0 +1,7 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+/* Stop double-tap zoom when tapping keys and squares fast. */
+button {
+	touch-action: manipulation;
+}
