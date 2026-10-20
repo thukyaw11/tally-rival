@@ -18,7 +18,7 @@ Tally — browser-only Scrabble score tracker (2–4 players, full 15×15 board)
 
 - SvelteKit 3 + Svelte 5 (runes mode forced for all project files in `vite.config.ts`), TypeScript (strict)
 - Tailwind CSS 4 via `@tailwindcss/vite`, with the typography plugin. No `tailwind.config` file — config lives in `src/routes/layout.css`
-- `@sveltejs/adapter-auto` — swap for a specific adapter when the deploy target is chosen
+- Deployed on Vercel with `@sveltejs/adapter-vercel` (build output in `.vercel/output`). Keep it as a real devDependency: with `adapter-auto`, Vercel installs it during the build and `@vercel/nft` picks up the wrong `estree-walker` (v3), which breaks the build.
 - Package manager: **bun** (`bun.lock`). `.npmrc` has `engine-strict=true`
 
 ## Commands
