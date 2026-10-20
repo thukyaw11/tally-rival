@@ -1,3 +1,4 @@
+import { PLAYER_COLORS } from '../players';
 import { SIZE } from './constants';
 import {
 	emptyBoard,
@@ -18,7 +19,9 @@ export type Direction = 'across' | 'down';
 export type HistoryEntry = { player: number; kind: Move['kind']; score: MoveScore | null };
 
 export class Game {
+	// Players in turn order.
 	players = $state<string[]>([]);
+	colors = $state<number[]>([]);
 	moves = $state<Move[]>([]);
 	end = $state<EndState | null>(null);
 
@@ -37,6 +40,7 @@ export class Game {
 		const saved = persist ? storage.load() : null;
 		if (saved) {
 			this.players = saved.players;
+			this.colors = saved.colors ?? saved.players.map((_, i) => i);
 			this.moves = saved.moves;
 			this.end = saved.end;
 		}
@@ -62,13 +66,27 @@ export class Game {
 		this.end ? endGameAdjust(this.end.leftovers, this.end.wentOut) : this.players.map(() => 0)
 	);
 
-	scores: number[] = $derived(
-		this.players.map(
-			(_, i) =>
-				this.history.reduce((s, h) => (h.player === i ? s + (h.score?.total ?? 0) : s), 0) +
-				(this.adjust[i] ?? 0)
+	playScores: number[] = $derived(
+		this.players.map((_, i) =>
+			this.history.reduce((s, h) => (h.player === i ? s + (h.score?.total ?? 0) : s), 0)
 		)
 	);
+
+	scores: number[] = $derived(this.playScores.map((s, i) => s + (this.adjust[i] ?? 0)));
+
+	// Indexes of the winners once the game has ended; more than one means a tie.
+	winners: number[] = $derived.by(() => {
+		if (!this.end) return [];
+		const top = (ids: number[], by: number[]) => {
+			const best = Math.max(...ids.map((i) => by[i]));
+			return ids.filter((i) => by[i] === best);
+		};
+		const tied = top(
+			this.players.map((_, i) => i),
+			this.scores
+		);
+		return this.end.breakTie && tied.length > 1 ? top(tied, this.playScores) : tied;
+	});
 
 	started = $derived(this.players.length > 0);
 	ended = $derived(this.end !== null);
@@ -90,8 +108,10 @@ export class Game {
 		return score.words.map((w) => w.text).filter((t) => !isWord(words, t));
 	}
 
-	start(names: string[]) {
+	// Names must already be in turn order; colors default to seat order.
+	start(names: string[], colors = names.map((_, i) => i)) {
 		this.players = names;
+		this.colors = colors;
 		this.moves = [];
 		this.end = null;
 		this.resetDraft();
@@ -100,10 +120,15 @@ export class Game {
 
 	newGame() {
 		this.players = [];
+		this.colors = [];
 		this.moves = [];
 		this.end = null;
 		this.resetDraft();
 		if (this.persist) storage.clear();
+	}
+
+	color(player: number) {
+		return PLAYER_COLORS[this.colors[player] ?? player];
 	}
 
 	draftAt(row: number, col: number): PlacedTile | undefined {
@@ -167,9 +192,10 @@ export class Game {
 		return true;
 	}
 
-	pass() {
+	// Pass or swap: the turn ends with no points.
+	pass(kind: 'pass' | 'swap' = 'pass') {
 		if (this.ended) return;
-		this.moves = [...this.moves, { player: this.current, kind: 'pass', tiles: [] }];
+		this.moves = [...this.moves, { player: this.current, kind, tiles: [] }];
 		this.resetDraft();
 		this.save();
 	}
@@ -213,6 +239,7 @@ export class Game {
 		const data: SaveData = {
 			version: 1,
 			players: $state.snapshot(this.players),
+			colors: $state.snapshot(this.colors),
 			moves: $state.snapshot(this.moves),
 			end: $state.snapshot(this.end)
 		};

@@ -9,6 +9,6 @@
 	<title>Tally · Scrabble scores</title>
 </svelte:head>
 
-<div class="min-h-dvh bg-stone-200 text-stone-900">
+<div class="min-h-dvh">
 	{@render children()}
 </div>

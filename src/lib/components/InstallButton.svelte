@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Download from '@lucide/svelte/icons/download';
 	// Chrome's install event; not in TS's DOM types.
 	type InstallPrompt = Event & { prompt: () => Promise<void> };
 
@@ -30,14 +31,11 @@
 
 {#if !standalone && (prompt || ios)}
 	<div class="relative">
-		<button
-			type="button"
-			onclick={install}
-			class="rounded-lg bg-white px-3 py-1 text-sm font-medium text-emerald-800 shadow-sm"
-			>Install app</button
+		<button type="button" onclick={install} class="btn-3d h-10 px-3 text-sm"
+			><Download size={16} /> Install app</button
 		>
 		{#if showIosHint}
-			<p class="absolute top-full right-0 z-20 mt-2 w-60 rounded-lg bg-white p-3 text-sm shadow-lg">
+			<p class="absolute top-full right-0 z-20 mt-3 w-60 panel p-3 text-sm">
 				Tap the <b>Share</b> button in Safari, then <b>Add to Home Screen</b>.
 			</p>
 		{/if}

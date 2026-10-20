@@ -59,4 +59,48 @@ describe('Game', () => {
 		game.undo();
 		expect(game.ended).toBe(false);
 	});
+
+	it('records swaps as zero-point turns', () => {
+		const game = new Game(false);
+		game.start(['Ann', 'Bo']);
+		game.pass('swap');
+		expect(game.history[0].kind).toBe('swap');
+		expect(game.current).toBe(1);
+	});
+
+	describe('winners', () => {
+		// Ann scores 10 with CAT, Bo scores 10 with OX through the A.
+		function tiedGame(end: { leftovers: string[]; breakTie: boolean }) {
+			const game = new Game(false);
+			game.start(['Ann', 'Bo']);
+			play(game, 7, 6, 'CAT');
+			play(game, 6, 7, 'OX', true);
+			game.finish({ wentOut: null, ...end });
+			return game;
+		}
+
+		it('keeps a tie when asked', () => {
+			expect(tiedGame({ leftovers: ['', ''], breakTie: false }).winners).toEqual([0, 1]);
+		});
+
+		it('stays a tie when scores before leftovers are equal too', () => {
+			expect(tiedGame({ leftovers: ['', ''], breakTie: true }).winners).toEqual([0, 1]);
+		});
+
+		it('breaks a tie by score before leftovers', () => {
+			const game = new Game(false);
+			game.start(['Ann', 'Bo']);
+			play(game, 7, 6, 'CAT'); // Ann 10
+			play(game, 6, 7, 'OX', true); // Bo 10
+			play(game, 7, 9, 'S'); // Ann 16 (CATS)
+			// Ann 16 - 6 (K, A) = 10, Bo 10 - 0 = 10.
+			game.finish({ wentOut: null, leftovers: ['KA', ''], breakTie: true });
+			expect(game.scores).toEqual([10, 10]);
+			expect(game.winners).toEqual([0]);
+		});
+
+		it('picks the single top score', () => {
+			expect(tiedGame({ leftovers: ['Q', ''], breakTie: false }).winners).toEqual([1]);
+		});
+	});
 });

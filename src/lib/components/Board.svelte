@@ -1,66 +1,130 @@
 <script lang="ts">
+	import ArrowDown from '@lucide/svelte/icons/arrow-down';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Star from '@lucide/svelte/icons/star';
 	import { LETTER_VALUES, PREMIUMS, SIZE, CENTER } from '#lib/scrabble/constants.ts';
 	import type { Game } from '#lib/scrabble/game.svelte.ts';
 
 	let { game }: { game: Game } = $props();
 
 	const premiumStyle = {
-		TW: 'bg-red-500 text-white',
-		DW: 'bg-rose-200 text-rose-900',
-		TL: 'bg-blue-600 text-white',
-		DL: 'bg-sky-200 text-sky-900'
+		TW: 'bg-[#e5484d] text-white',
+		DW: 'bg-[#f6a5b7] text-rose-900',
+		TL: 'bg-[#2f6fe4] text-white',
+		DL: 'bg-[#9fd8f6] text-sky-900'
 	};
 	const cells = Array.from({ length: SIZE * SIZE }, (_, i) => ({
 		row: Math.floor(i / SIZE),
 		col: i % SIZE
 	}));
+
+	// Hidden field that brings up the device's own keyboard. It always holds one
+	// filler char, so a shorter value means backspace and extra chars are typed letters.
+	const FILL = '.';
+	let input: HTMLInputElement;
+
+	function tap(row: number, col: number) {
+		const same = game.cursor?.row === row && game.cursor?.col === col;
+		// Re-tapping the cursor square only reopens the keyboard if it was closed.
+		if (!same || document.activeElement === input) game.tapCell(row, col);
+		input.focus({ preventScroll: true });
+	}
+
+	function oninput() {
+		const value = input.value;
+		if (value.length < FILL.length) game.backspace();
+		for (const ch of value.slice(FILL.length)) {
+			if (/[a-z]/i.test(ch)) game.placeLetter(ch);
+			else if (ch === ' ') game.toggleDirection();
+			else if (ch === '?' || ch === '*') game.toggleBlank();
+		}
+		input.value = FILL;
+		input.setSelectionRange(FILL.length, FILL.length);
+	}
+
+	function onkeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') game.clearDraft();
+	}
+
+	function onsubmit(e: SubmitEvent) {
+		e.preventDefault();
+		game.submit();
+	}
+
+	// Close the keyboard once the word is submitted or cleared.
+	$effect(() => {
+		if (!game.cursor && document.activeElement === input) input.blur();
+	});
 </script>
 
+<form {onsubmit} class="relative">
+	<input
+		bind:this={input}
+		{oninput}
+		{onkeydown}
+		value={FILL}
+		aria-label="Type letters"
+		autocomplete="off"
+		autocapitalize="characters"
+		spellcheck="false"
+		enterkeyhint="done"
+		class="pointer-events-none absolute top-0 left-0 h-px w-px opacity-0"
+		style="font-size: 16px"
+	/>
+</form>
+
+<!-- Wooden frame around the felt board. -->
 <div
-	class="@container grid aspect-square w-full grid-cols-15 grid-rows-15 gap-px rounded-md bg-emerald-900 p-px select-none"
-	role="grid"
-	aria-label="Scrabble board"
+	class="rounded-2xl bg-linear-to-br from-[#c48544] via-[#9a5f2a] to-[#6b3f17] p-[2.2%] shadow-[0_6px_0_#4a2a0e,0_16px_32px_rgb(0_0_0/0.5),inset_0_2px_0_rgb(255_255_255/0.25)]"
 >
-	{#each cells as { row, col } (`${row}-${col}`)}
-		{@const placed = game.board[row][col]}
-		{@const draft = game.draftAt(row, col)}
-		{@const tile = placed ?? draft}
-		{@const premium = PREMIUMS[row][col]}
-		{@const isCursor = game.cursor?.row === row && game.cursor?.col === col}
-		<button
-			type="button"
-			onclick={() => game.tapCell(row, col)}
-			aria-label={`Row ${row + 1} column ${col + 1}${tile ? ` ${tile.letter}` : ''}`}
-			class={[
-				'relative flex items-center justify-center overflow-hidden rounded-[2px] leading-none font-bold',
-				tile
-					? draft
-						? 'bg-amber-300 text-stone-900 ring-2 ring-emerald-500 ring-inset'
-						: 'bg-amber-100 text-stone-900'
-					: premium
-						? premiumStyle[premium]
-						: 'bg-emerald-700/90',
-				isCursor && 'z-10 outline-3 outline-sky-400'
-			]}
-			style="font-size: 4cqw"
-		>
-			{#if tile}
-				<span class={tile.blank ? 'text-stone-400' : ''}>{tile.letter}</span>
-				{#if !tile.blank}
-					<span class="absolute right-[6%] bottom-[6%]" style="font-size: 1.6cqw"
-						>{LETTER_VALUES[tile.letter]}</span
-					>
+	<div
+		class="@container grid aspect-square w-full grid-cols-15 grid-rows-15 gap-[0.35%] rounded-lg bg-felt-dark p-[0.35%] select-none"
+		role="grid"
+		aria-label="Scrabble board"
+	>
+		{#each cells as { row, col } (`${row}-${col}`)}
+			{@const placed = game.board[row][col]}
+			{@const draft = game.draftAt(row, col)}
+			{@const tile = placed ?? draft}
+			{@const premium = PREMIUMS[row][col]}
+			{@const isCursor = game.cursor?.row === row && game.cursor?.col === col}
+			<button
+				type="button"
+				onmousedown={(e) => e.preventDefault()}
+				onclick={() => tap(row, col)}
+				aria-label={`Row ${row + 1} column ${col + 1}${tile ? ` ${tile.letter}` : ''}`}
+				class={[
+					'relative flex items-center justify-center rounded-[3px] leading-none font-bold',
+					tile
+						? ['tile', draft && 'z-10 -translate-y-px ring-2 ring-yellow-300']
+						: premium
+							? [premiumStyle[premium], 'shadow-[inset_0_1px_2px_rgb(0_0_0/0.25)]']
+							: 'bg-felt shadow-[inset_0_1px_2px_rgb(0_0_0/0.3)]',
+					isCursor && 'z-20 outline-3 outline-yellow-300'
+				]}
+				style="font-size: 4cqw"
+			>
+				{#if tile}
+					<span class={tile.blank ? 'opacity-40' : ''}>{tile.letter}</span>
+					{#if !tile.blank}
+						<span class="absolute right-[6%] bottom-[6%]" style="font-size: 1.6cqw"
+							>{LETTER_VALUES[tile.letter]}</span
+						>
+					{/if}
+				{:else if row === CENTER && col === CENTER}
+					<Star class="fill-current" style="width: 3.6cqw; height: 3.6cqw" />
+				{:else if premium}
+					<span style="font-size: 1.9cqw">{premium}</span>
 				{/if}
-			{:else if row === CENTER && col === CENTER}
-				<span style="font-size: 4cqw">★</span>
-			{:else if premium}
-				<span style="font-size: 1.9cqw">{premium}</span>
-			{/if}
-			{#if isCursor && !tile}
-				<span class="absolute text-sky-300" style="font-size: 3.5cqw"
-					>{game.direction === 'across' ? '→' : '↓'}</span
-				>
-			{/if}
-		</button>
-	{/each}
+				{#if isCursor && !tile}
+					{@const Arrow = game.direction === 'across' ? ArrowRight : ArrowDown}
+					<span
+						class="absolute inset-0 flex items-center justify-center rounded-[3px] bg-yellow-300/85 text-yellow-950"
+					>
+						<Arrow strokeWidth={3} style="width: 4cqw; height: 4cqw" />
+					</span>
+				{/if}
+			</button>
+		{/each}
+	</div>
 </div>

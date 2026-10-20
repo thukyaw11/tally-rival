@@ -1,8 +1,16 @@
 import type { PlacedTile } from './rules';
 
-export type Move = { player: number; kind: 'play' | 'pass'; tiles: PlacedTile[] };
-export type EndState = { wentOut: number | null; leftovers: string[] };
-export type SaveData = { version: 1; players: string[]; moves: Move[]; end: EndState | null };
+export type Move = { player: number; kind: 'play' | 'pass' | 'swap'; tiles: PlacedTile[] };
+// breakTie: on equal final scores, the higher score before leftover tiles wins.
+export type EndState = { wentOut: number | null; leftovers: string[]; breakTie?: boolean };
+// colors: index into PLAYER_COLORS per player (missing in older saves = seat order).
+export type SaveData = {
+	version: 1;
+	players: string[];
+	colors?: number[];
+	moves: Move[];
+	end: EndState | null;
+};
 
 const KEY = 'tally:game';
 
