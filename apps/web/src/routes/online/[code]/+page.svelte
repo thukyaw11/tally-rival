@@ -6,8 +6,14 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import ActionBar from '#lib/components/ActionBar.svelte';
+	import BlankPicker from '#lib/components/BlankPicker.svelte';
 	import Board from '#lib/components/Board.svelte';
-	import EndGame from '#lib/components/EndGame.svelte';
+	import Chat from '#lib/components/Chat.svelte';
+	import ChatButton from '#lib/components/ChatButton.svelte';
+	import ChatSheet from '#lib/components/ChatSheet.svelte';
+	import ChatToast from '#lib/components/ChatToast.svelte';
+	import DragGhost from '#lib/components/DragGhost.svelte';
+	import FinalResults from '#lib/components/FinalResults.svelte';
 	import History from '#lib/components/History.svelte';
 	import Lobby from '#lib/components/Lobby.svelte';
 	import Logo from '#lib/components/Logo.svelte';
@@ -17,12 +23,16 @@
 	import Scoreboard from '#lib/components/Scoreboard.svelte';
 	import SoundToggle from '#lib/components/SoundToggle.svelte';
 	import TurnTimer from '#lib/components/TurnTimer.svelte';
+	import YouCard from '#lib/components/YouCard.svelte';
 	import { api } from '#lib/online/api.ts';
+	import { TileDrag } from '#lib/online/drag.svelte.ts';
 	import { OnlineRoom } from '#lib/online/room.svelte.ts';
 	import {
 		clearSession,
+		loadAvatar,
 		loadName,
 		loadSession,
+		saveAvatar,
 		saveName,
 		saveSession
 	} from '#lib/online/session.ts';
@@ -36,8 +46,26 @@
 		if (r) return untrack(() => r.connect());
 	});
 
+	// On wide screens chat sits in the side column, so it never counts as unread.
+	$effect(() => {
+		const chat = room?.chat;
+		if (!chat) return;
+		const wide = matchMedia('(min-width: 1024px)');
+		const update = () => chat.setWide(wide.matches);
+		update();
+		wide.addEventListener('change', update);
+		return () => wide.removeEventListener('change', update);
+	});
+
+	// Drag and drop tiles; a dropped blank asks for its letter.
+	let blankPicker = $state<ReturnType<typeof BlankPicker>>();
+	const drag = $derived(
+		room ? new TileDrag(room.game, () => blankPicker?.pick() ?? Promise.resolve(null)) : null
+	);
+
 	// Joining from a shared link.
 	let name = $state(loadName());
+	let avatar = $state(loadAvatar());
 	let joinError = $state<string | null>(null);
 	let joining = $state(false);
 
@@ -46,9 +74,10 @@
 		if (!name.trim()) return (joinError = 'Type your name first');
 		joining = true;
 		try {
-			const session = await api.join(code, name.trim());
+			const session = await api.join(code, name.trim(), avatar);
 			saveSession(session);
 			saveName(name.trim());
+			saveAvatar(avatar);
 			room = new OnlineRoom(session);
 		} catch (err) {
 			joinError = err instanceof Error ? err.message : String(err);
@@ -73,7 +102,7 @@
 
 	function swap() {
 		if (!room?.view) return;
-		const rack = room.view.rack;
+		const rack = room.game.arrangedRack;
 		room.swap(selected.map((i) => rack[i]));
 		swapping = false;
 	}
@@ -84,18 +113,22 @@
 	}
 
 	function onkeydown(e: KeyboardEvent) {
-		if (!room || !playing || swapping || timeUp || e.metaKey || e.ctrlKey || e.altKey) return;
+		if (!room || !playing || swapping || timeUp || room.chat.open) return;
+		if (e.metaKey || e.ctrlKey || e.altKey) return;
 		if (e.target instanceof HTMLInputElement) return;
 		if (room.game.handleKey(e.key)) e.preventDefault();
 	}
-
-	const field =
-		'min-w-0 flex-1 rounded-xl border-2 border-cream-edge bg-white px-3 py-2 font-medium';
 </script>
 
 <svelte:window {onkeydown} />
 
-<main class="mx-auto flex min-h-dvh max-w-6xl flex-col gap-4 px-4 py-4">
+<!-- On desktop a running game fits one screen; History and Chat scroll inside. -->
+<main
+	class={[
+		'mx-auto flex min-h-dvh max-w-6xl flex-col gap-4 px-4 py-4',
+		view && view.status !== 'lobby' && 'lg:h-dvh'
+	]}
+>
 	<header class="flex items-center justify-between gap-2">
 		{#if room && view && view.status !== 'lobby'}
 			<Logo />
@@ -103,6 +136,9 @@
 			<a href={resolve('/')} class="btn-3d h-10 w-10" aria-label="Home"><House size={20} /></a>
 		{/if}
 		<div class="flex items-center gap-2">
+			{#if room && view}
+				<ChatButton chat={room.chat} />
+			{/if}
 			<SoundToggle />
 			{#if room && view && view.status !== 'lobby'}
 				<Menu
@@ -112,6 +148,7 @@
 						swapping = true;
 					}}
 					canSwap={view.bagCount >= RACK_SIZE}
+					onendonline={room.isHost ? () => room?.endGame() : undefined}
 				/>
 			{/if}
 		</div>
@@ -129,22 +166,21 @@
 					>
 				</div>
 			{:else}
-				<form onsubmit={join} class="flex w-full max-w-sm flex-col gap-3 panel p-5">
+				<form onsubmit={join} class="flex w-full max-w-sm flex-col gap-3">
 					<h2 class="text-center text-xl font-bold">
 						Join room <span class="tracking-widest">{code}</span>
 					</h2>
-					<input
-						bind:value={name}
-						maxlength="20"
-						placeholder="Your name"
-						aria-label="Your name"
-						class={field}
-					/>
+					<YouCard bind:name bind:avatar />
 					<button type="submit" class="btn-3d h-12 text-lg btn-green" disabled={joining}
 						><LogIn size={20} /> Join</button
 					>
 					{#if joinError}
-						<p class="text-center font-medium text-rose-600" role="alert">{joinError}</p>
+						<p
+							class="rounded-xl bg-rose-600 px-4 py-2 text-center font-medium text-white"
+							role="alert"
+						>
+							{joinError}
+						</p>
 					{/if}
 				</form>
 			{/if}
@@ -162,18 +198,26 @@
 					{room.error}
 				</p>
 			{/if}
+			{#if room.chat.wide}
+				<Chat {room} class="h-80 w-full max-w-sm" />
+			{/if}
 		</div>
 	{:else}
 		<GameSounds game={room.game} myTurn={room.myTurn} error={room.error} />
-		<div class="flex flex-col gap-4 lg:flex-row lg:items-start">
-			<div class="w-full lg:max-w-[640px] lg:flex-1">
-				<Board game={room.game} />
+		<div class="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row lg:items-stretch">
+			<!-- On desktop the board also fits the window height. -->
+			<div class="w-full lg:max-w-[min(640px,calc(100dvh-7rem))] lg:flex-1">
+				<Board game={room.game} {drag} />
 			</div>
-			<div class="flex w-full flex-col gap-4 lg:w-96">
+			<!-- Padding keeps the turn badge and card outline from being clipped by the scroll box. -->
+			<div
+				class="flex w-full flex-col gap-4 lg:-mx-1.5 lg:min-h-0 lg:w-99 lg:overflow-y-auto lg:px-1.5 lg:pt-2.5"
+			>
 				<Scoreboard
 					game={room.game}
 					me={room.me}
 					timeLeft={playing && view.turnMinutes ? timeLeft : null}
+					tilesLeft={playing && view.bagCount === 0 ? view.rackCounts : null}
 				/>
 				{#if playing}
 					{#if view.turnMinutes}
@@ -186,7 +230,7 @@
 							canSwap={view.bagCount >= RACK_SIZE}
 						/>
 					{/if}
-					<Rack game={room.game} bagCount={view.bagCount} {swapping} bind:selected />
+					<Rack game={room.game} bagCount={view.bagCount} {swapping} bind:selected {drag} />
 					{#if swapping}
 						<div class="flex gap-2">
 							<button type="button" class="btn-3d h-11 flex-1" onclick={() => (swapping = false)}
@@ -212,9 +256,26 @@
 						{room.error}
 					</p>
 				{/if}
-				<EndGame game={room.game} />
-				<History game={room.game} />
+				{#if room.game.ended}
+					<FinalResults
+						game={room.game}
+						me={room.me}
+						endedBy={view.players.find((p) => p.id === view.end?.endedBy)?.name}
+					/>
+				{/if}
+				<History game={room.game} class="lg:min-h-40 lg:flex-1" />
+				{#if room.chat.wide}
+					<Chat {room} class="min-h-56 flex-1" />
+				{/if}
 			</div>
 		</div>
+	{/if}
+	{#if room && view}
+		<ChatSheet {room} />
+		{#if drag}
+			<DragGhost {drag} />
+		{/if}
+		<BlankPicker bind:this={blankPicker} />
+		<ChatToast {room} />
 	{/if}
 </main>

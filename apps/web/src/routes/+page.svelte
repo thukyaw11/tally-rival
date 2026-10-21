@@ -6,12 +6,33 @@
 	import InstallButton from '#lib/components/InstallButton.svelte';
 	import Logo from '#lib/components/Logo.svelte';
 	import SoundToggle from '#lib/components/SoundToggle.svelte';
-	import { loadSession } from '#lib/online/session.ts';
+	import { api, ApiError } from '#lib/online/api.ts';
+	import { loadSession, markSessionEnded } from '#lib/online/session.ts';
 	import * as storage from '#lib/scrabble/storage.ts';
 
 	const saved = storage.load();
 	const trackerInProgress = !!saved?.players.length && !saved.end;
-	const session = loadSession();
+	const room = loadSession();
+	// Only offer to go back to a room that's still going.
+	let session = $state(room?.ended ? null : room);
+
+	// Rooms that ended (or were removed) while this page wasn't watching.
+	$effect(() => {
+		const s = session;
+		if (!s) return;
+		api
+			.view(s)
+			.then((v) => {
+				if (v.status === 'ended') {
+					markSessionEnded(s.code);
+					session = null;
+				}
+			})
+			.catch((e) => {
+				// Offline: keep the button. Gone or not ours any more: hide it.
+				if (e instanceof ApiError && (e.status === 401 || e.status === 404)) session = null;
+			});
+	});
 </script>
 
 <main class="mx-auto flex min-h-dvh max-w-6xl flex-col gap-4 px-4 py-4">

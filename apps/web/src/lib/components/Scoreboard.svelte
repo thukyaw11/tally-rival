@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { initial } from '#lib/players.ts';
+	import Avatar from '#lib/components/Avatar.svelte';
 	import type { Game } from '#lib/scrabble/game.svelte.ts';
 
 	// timeLeft: seconds left in the current turn, or null with no timer.
@@ -7,8 +7,15 @@
 	let {
 		game,
 		timeLeft = null,
-		me = null
-	}: { game: Game; timeLeft?: number | null; me?: number | null } = $props();
+		me = null,
+		tilesLeft = null
+	}: {
+		game: Game;
+		timeLeft?: number | null;
+		me?: number | null;
+		// Online once the bag is empty: tiles each player still holds.
+		tilesLeft?: number[] | null;
+	} = $props();
 
 	const R = 20;
 	const RING = 2 * Math.PI * R;
@@ -47,12 +54,25 @@
 							/>
 						</svg>
 					{/if}
-					<span
-						class="flex h-full w-full items-center justify-center rounded-full text-sm font-bold text-white"
-						style={`background: ${active ? color.edge : color.bg}`}>{initial(name)}</span
-					>
+					<Avatar
+						{name}
+						avatar={game.avatar(i)}
+						bg={active ? color.edge : color.bg}
+						class="h-full w-full"
+					/>
 				</span>
 				<span class="min-w-0 flex-1 truncate font-medium">{name}</span>
+				{#if tilesLeft}
+					<span
+						class={[
+							'flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-bold tabular-nums',
+							active ? 'bg-white/25' : 'bg-cream-edge/60'
+						]}
+						aria-label={`${tilesLeft[i]} ${tilesLeft[i] === 1 ? 'tile' : 'tiles'} left`}
+						title="Tiles left"
+						><span class="h-3 w-3 rounded-[3px] tile" aria-hidden="true"></span>{tilesLeft[i]}</span
+					>
+				{/if}
 				{#key game.scores[i]}
 					<span class="animate-pop text-2xl font-bold tabular-nums">{game.scores[i]}</span>
 				{/key}
@@ -80,7 +100,8 @@
 							<span
 								class={[
 									'font-semibold tracking-wide',
-									game.unknownWords.includes(w.text) && 'text-amber-600'
+									game.unknownWords.includes(w.text) &&
+										(game.strictWords ? 'text-rose-600 line-through' : 'text-amber-600')
 								]}>{w.text} <span class="opacity-60">{w.score}</span></span
 							>
 						{/each}
@@ -92,11 +113,21 @@
 					</p>
 					{#key game.draftScore.total}
 						<span
-							class="shrink-0 animate-pop rounded-xl bg-green-500 px-3 py-0.5 text-2xl font-bold text-white tabular-nums shadow-[0_3px_0_#15803d]"
+							class={[
+								'shrink-0 animate-pop rounded-xl px-3 py-0.5 text-2xl font-bold text-white tabular-nums',
+								game.canSubmit
+									? 'bg-green-500 shadow-[0_3px_0_#15803d]'
+									: 'bg-stone-400 line-through shadow-[0_3px_0_#78716c]'
+							]}
 							aria-label="Total">+{game.draftScore.total}</span
 						>
 					{/key}
 				</div>
+			{/if}
+			{#if game.strictWords && game.unknownWords.length}
+				<p class="mt-1 font-medium text-rose-600" role="alert">
+					Not in the word list: {game.unknownWords.map((w) => w.toUpperCase()).join(', ')}
+				</p>
 			{/if}
 			{#if game.overused.length}
 				<p class="text-amber-600">More tiles than the bag has: {game.overused.join(', ')}</p>

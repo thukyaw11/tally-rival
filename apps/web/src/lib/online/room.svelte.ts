@@ -1,9 +1,10 @@
 import { PUSHER_CLUSTER, PUSHER_KEY } from '$app/env/public';
-import type { MoveRequest, PlayerView } from '@tally/game';
+import type { ChatMessage, MoveRequest, PlayerView } from '@tally/game';
 import Pusher, { type Members } from 'pusher-js';
 import { Game } from '#lib/scrabble/game.svelte.ts';
 import { api, ApiError, authEndpoint } from './api.ts';
-import type { Session } from './session.ts';
+import { RoomChat } from './chat.svelte.ts';
+import { markSessionEnded, type Session } from './session.ts';
 
 // Without Pusher keys (local dev), ask the server for changes this often.
 const POLL_MS = 3000;
@@ -12,6 +13,7 @@ const POLL_MS = 3000;
 // Board, Scoreboard and History work unchanged; submit and pass are sent to the server.
 export class OnlineRoom {
 	readonly session: Session;
+	readonly chat: RoomChat;
 	readonly game = new Game(false, true);
 	view = $state.raw<PlayerView | null>(null);
 	error = $state<string | null>(null);
@@ -27,6 +29,8 @@ export class OnlineRoom {
 
 	constructor(session: Session) {
 		this.session = session;
+		this.chat = new RoomChat(session);
+		this.game.strictWords = true;
 		this.game.remote = {
 			play: (tiles) => this.send({ kind: 'play', tiles }),
 			pass: (kind) =>
@@ -39,9 +43,11 @@ export class OnlineRoom {
 		if (this.view && v.moves.length < this.view.moves.length) return;
 		const g = this.game;
 		const changed = v.moves.length !== g.moves.length || v.status !== this.view?.status;
+		if (v.status === 'ended') markSessionEnded(v.code);
 		this.view = v;
 		g.players = v.players.map((p) => p.name);
 		g.colors = v.players.map((p) => p.color);
+		g.avatars = v.players.map((p) => p.avatar);
 		g.turnMinutes = v.turnMinutes;
 		g.rack = v.rack;
 		g.end = v.end && { ...v.end, breakTie: false };
@@ -81,14 +87,25 @@ export class OnlineRoom {
 		this.busy = false;
 	}
 
+	// Host only: end now; everyone's leftover tiles are subtracted.
+	async endGame() {
+		this.busy = true;
+		await this.run(() => api.end(this.session));
+		this.busy = false;
+	}
+
 	// Listens for changes; returns a function that stops listening.
 	connect(): () => void {
-		this.refresh();
-		const onVisible = () => document.visibilityState === 'visible' && this.refresh();
+		const catchUp = () => {
+			this.refresh();
+			this.chat.load();
+		};
+		catchUp();
+		const onVisible = () => document.visibilityState === 'visible' && catchUp();
 		document.addEventListener('visibilitychange', onVisible);
 
 		if (!PUSHER_KEY) {
-			const id = setInterval(this.refresh, POLL_MS);
+			const id = setInterval(catchUp, POLL_MS);
 			return () => {
 				clearInterval(id);
 				document.removeEventListener('visibilitychange', onVisible);
@@ -105,6 +122,7 @@ export class OnlineRoom {
 		});
 		const channel = pusher.subscribe(`presence-room-${this.session.code}`);
 		channel.bind('updated', this.refresh);
+		channel.bind('chat', (m: ChatMessage) => this.chat.merge([m]));
 		channel.bind('pusher:subscription_succeeded', (members: Members) => {
 			const ids: string[] = [];
 			members.each((m: { id: string }) => ids.push(m.id));
@@ -117,7 +135,7 @@ export class OnlineRoom {
 			(m: { id: string }) => (this.here = this.here.filter((id) => id !== m.id))
 		);
 		// Catch up on anything missed while disconnected.
-		pusher.connection.bind('connected', this.refresh);
+		pusher.connection.bind('connected', catchUp);
 
 		return () => {
 			pusher.disconnect();

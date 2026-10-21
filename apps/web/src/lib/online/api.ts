@@ -1,5 +1,5 @@
 import { API_URL } from '$app/env/public';
-import type { MoveRequest, PlayerView } from '@tally/game';
+import type { ChatMessage, MoveRequest, PlayerView } from '@tally/game';
 import type { Session } from './session.ts';
 
 export class ApiError extends Error {
@@ -36,14 +36,25 @@ async function request<T>(
 }
 
 export const api = {
-	create: (name: string, turnMinutes: number | null) =>
-		request<Session>('POST', '/rooms', undefined, { name, turnMinutes }),
-	join: (code: string, name: string) =>
-		request<Session>('POST', `/rooms/${code}/join`, undefined, { name }),
+	create: (name: string, turnMinutes: number | null, avatar: number) =>
+		request<Session>('POST', '/rooms', undefined, { name, turnMinutes, avatar }),
+	join: (code: string, name: string, avatar: number) =>
+		request<Session>('POST', `/rooms/${code}/join`, undefined, { name, avatar }),
 	view: (s: Session) => request<PlayerView>('GET', `/rooms/${s.code}`, s.token),
 	start: (s: Session) => request<PlayerView>('POST', `/rooms/${s.code}/start`, s.token),
+	end: (s: Session) => request<PlayerView>('POST', `/rooms/${s.code}/end`, s.token),
 	move: (s: Session, move: MoveRequest) =>
-		request<PlayerView>('POST', `/rooms/${s.code}/move`, s.token, move)
+		request<PlayerView>('POST', `/rooms/${s.code}/move`, s.token, move),
+	chat: async (s: Session, after = 0) =>
+		(
+			await request<{ messages: ChatMessage[] }>(
+				'GET',
+				`/rooms/${s.code}/chat?after=${after}`,
+				s.token
+			)
+		).messages,
+	say: (s: Session, text: string) =>
+		request<ChatMessage>('POST', `/rooms/${s.code}/chat`, s.token, { text })
 };
 
 export const authEndpoint = `${API_URL}/pusher/auth`;

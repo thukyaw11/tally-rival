@@ -5,11 +5,19 @@ export type RoomStatus = 'lobby' | 'playing' | 'ended';
 export type MoveKind = 'play' | 'pass' | 'swap';
 
 // seat is the turn order, set when the game starts (null in the lobby).
-export type OnlinePlayer = { id: string; name: string; color: number; seat: number | null };
+// avatar: index into AVATARS, null when the player didn't pick one.
+export type OnlinePlayer = {
+	id: string;
+	name: string;
+	color: number;
+	seat: number | null;
+	avatar: number | null;
+};
 // player is a seat index.
 export type OnlineMove = { player: number; kind: MoveKind; tiles: PlacedTile[]; score: number };
 // Same shape as the tracker's EndState; leftovers use '?' for a blank.
-export type OnlineEnd = { wentOut: number | null; leftovers: string[] };
+// endedBy: the host's player id when they ended the game early.
+export type OnlineEnd = { wentOut: number | null; leftovers: string[]; endedBy?: string };
 
 // What everyone in the room may see. players are in seat order once the game starts.
 export type RoomState = {
@@ -30,6 +38,9 @@ export type PlayerView = RoomState & { you: string; rack: string[] };
 
 export type MoveRequest =
 	{ kind: 'play'; tiles: PlacedTile[] } | { kind: 'pass' } | { kind: 'swap'; letters: string[] };
+
+export type ChatMessage = { id: number; playerId: string; text: string; at: string };
+export const CHAT_MAX = 200;
 
 export const MAX_PLAYERS = 4;
 // Six scoreless turns in a row end the game.

@@ -120,6 +120,53 @@ body {
 		0 1px 2px rgb(0 0 0 / 0.45);
 }
 
+/* The last word played: an outline and glow in the player's colour (--glow) that fade after 4 s. */
+@keyframes last-word {
+	0%,
+	70% {
+		outline-color: var(--glow);
+		filter: drop-shadow(0 0 4px var(--glow));
+	}
+	100% {
+		outline-color: transparent;
+		filter: none;
+	}
+}
+@keyframes fade-out {
+	0%,
+	75% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+@utility last-word {
+	z-index: 10;
+	outline: 2px solid var(--glow);
+	animation: last-word 4s ease-out forwards;
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+	}
+}
+/* Tiles placed in that move also pop in. */
+@utility last-word-new {
+	z-index: 10;
+	outline: 2px solid var(--glow);
+	animation:
+		last-word 4s ease-out forwards,
+		pop 0.3s ease-out;
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+	}
+}
+@utility last-score {
+	animation: fade-out 4s ease-in forwards;
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+	}
+}
+
 /* Stop double-tap zoom when tapping keys and squares fast. */
 button {
 	touch-action: manipulation;

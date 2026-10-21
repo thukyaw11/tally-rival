@@ -1,5 +1,6 @@
 // Writes fixtures/rules.json (rule cases) and fixtures/constants.json with the TS results, checked by the Go server's tests too.
 // Run after changing the rules: bun run fixtures
+import { AVATARS } from '../src/avatars';
 import { BLANK_COUNT, LETTER_VALUES, TILE_COUNTS } from '../src/constants';
 import { emptyBoard, scoreMove, validatePlacement, withTiles, type PlacedTile } from '../src/rules';
 
@@ -50,7 +51,12 @@ await Bun.write(
 await Bun.write(
 	new URL('../fixtures/constants.json', import.meta.url),
 	JSON.stringify(
-		{ letterValues: LETTER_VALUES, tileCounts: TILE_COUNTS, blankCount: BLANK_COUNT },
+		{
+			letterValues: LETTER_VALUES,
+			tileCounts: TILE_COUNTS,
+			blankCount: BLANK_COUNT,
+			avatarCount: AVATARS.length
+		},
 		null,
 		'\t'
 	) + '\n'

@@ -1,6 +1,7 @@
+import { asset } from '$app/paths';
 import type { Game } from '#lib/scrabble/game.svelte.ts';
 
-// Game sounds, made with the Web Audio API so there are no files to load.
+// Game sounds: most are made with the Web Audio API; a few are recorded files (see FILES).
 export type SoundName =
 	| 'place'
 	| 'remove'
@@ -13,9 +14,18 @@ export type SoundName =
 	| 'buzzer'
 	| 'join'
 	| 'error'
-	| 'win';
+	| 'win'
+	| 'message';
 
 const MUTED_KEY = 'tally:muted';
+
+// Recorded sounds in static/sounds; until they load (or if they fail) the made-up version plays.
+const FILES: Partial<Record<SoundName, string>> = {
+	buzzer: asset('sounds/timeup.mp3'),
+	win: asset('sounds/complete.mp3')
+};
+// The files are full volume; the made-up sounds are mixed lower.
+const FILE_GAIN = 2;
 
 type ToneOptions = { type?: OscillatorType; gain?: number; endFreq?: number };
 type NoiseOptions = { gain?: number; freq?: number; endFreq?: number; filter?: BiquadFilterType };
@@ -26,6 +36,8 @@ export class Sound {
 	private ctx: AudioContext | null = null;
 	private master: GainNode | null = null;
 	private noise: AudioBuffer | null = null;
+	private buffers: Partial<Record<SoundName, AudioBuffer>> = {};
+	private playing: Partial<Record<SoundName, AudioBufferSourceNode>> = {};
 
 	constructor() {
 		try {
@@ -53,8 +65,26 @@ export class Sound {
 			this.noise = this.ctx.createBuffer(1, this.ctx.sampleRate / 2, this.ctx.sampleRate);
 			const data = this.noise.getChannelData(0);
 			for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+			this.loadFiles(this.ctx);
 		}
 		if (this.ctx.state === 'suspended') this.ctx.resume();
+	}
+
+	private loadFiles(ctx: AudioContext) {
+		for (const [name, url] of Object.entries(FILES) as [SoundName, string][]) {
+			fetch(url)
+				.then((res) => res.arrayBuffer())
+				.then((data) => ctx.decodeAudioData(data))
+				.then((buffer) => (this.buffers[name] = buffer))
+				.catch(() => {
+					// Keep the made-up sound.
+				});
+		}
+	}
+
+	// Whether a recorded file is ready for this sound.
+	hasFile(name: SoundName) {
+		return !!this.buffers[name];
 	}
 
 	toggle() {
@@ -70,8 +100,27 @@ export class Sound {
 	play(name: SoundName): boolean {
 		const ctx = this.ctx;
 		if (this.muted || !ctx || ctx.state !== 'running') return false;
-		RECIPES[name](this, ctx.currentTime);
+		const buffer = this.buffers[name];
+		if (!buffer) {
+			RECIPES[name](this, ctx.currentTime);
+			return true;
+		}
+		this.stop(name);
+		const src = ctx.createBufferSource();
+		const gain = ctx.createGain();
+		src.buffer = buffer;
+		gain.gain.value = FILE_GAIN;
+		src.connect(gain).connect(this.master!);
+		src.onended = () => this.playing[name] === src && delete this.playing[name];
+		src.start();
+		this.playing[name] = src;
 		return true;
+	}
+
+	// Stops a recorded sound that is still playing (e.g. the 4 s time-up sound once the turn moves on).
+	stop(name: SoundName) {
+		this.playing[name]?.stop();
+		delete this.playing[name];
 	}
 
 	tone(
@@ -160,7 +209,11 @@ const RECIPES: Record<SoundName, (s: Sound, t: number) => void> = {
 		s.tone(140, t, 0.22, { type: 'triangle', gain: 0.55, endFreq: 80 });
 		s.burst(t, 0.06, { gain: 0.3, freq: 300, filter: 'lowpass' });
 	},
-	win: (s, t) => notes(s, t, [523, 659, 784, 659, 784, 1047], 0.12, 0.7)
+	win: (s, t) => notes(s, t, [523, 659, 784, 659, 784, 1047], 0.12, 0.7),
+	message: (s, t) => {
+		s.tone(740, t, 0.08, { gain: 0.25 });
+		s.tone(988, t + 0.07, 0.12, { gain: 0.25 });
+	}
 };
 
 export const sound = new Sound();

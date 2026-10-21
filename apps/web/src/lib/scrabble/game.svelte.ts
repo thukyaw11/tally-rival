@@ -1,7 +1,8 @@
-import { PLAYER_COLORS } from '../players';
+import { PLAYER_COLORS, shuffle } from '../players';
 import {
 	SIZE,
 	emptyBoard,
+	mainWordCells,
 	endGameAdjust,
 	overusedLetters,
 	rackLetter,
@@ -19,6 +20,30 @@ import type { EndState, Move, SaveData } from './storage';
 
 export type Direction = 'across' | 'down';
 export type HistoryEntry = { player: number; kind: Move['kind']; score: MoveScore | null };
+// The most recent word played: seq is its move index, cells its main word's squares.
+export type LastPlay = {
+	seq: number;
+	player: number;
+	cells: { row: number; col: number }[];
+	placed: PlacedTile[];
+	total: number;
+};
+// A rack tile shown to the player; slot is its place in the player's arrangement.
+export type RackTile = { letter: string; slot: number };
+
+// Keeps the player's order for letters still on the rack and adds new ones at the end.
+export function arrangeRack(order: string[], rack: string[]): string[] {
+	const left = [...rack];
+	const kept: string[] = [];
+	for (const letter of order) {
+		const i = left.indexOf(letter);
+		if (i < 0) continue;
+		kept.push(letter);
+		left.splice(i, 1);
+	}
+	return [...kept, ...left];
+}
+
 // Online play: the server owns the moves, so submit and pass are sent to it instead.
 export type Remote = { play(tiles: PlacedTile[]): void; pass(kind: 'pass' | 'swap'): void };
 
@@ -26,6 +51,7 @@ export class Game {
 	// Players in turn order.
 	players = $state<string[]>([]);
 	colors = $state<number[]>([]);
+	avatars = $state<(number | null)[]>([]);
 	// Minutes per turn, or null for no timer.
 	turnMinutes = $state<number | null>(null);
 	moves = $state<Move[]>([]);
@@ -42,7 +68,11 @@ export class Game {
 	remote: Remote | null = null;
 	// Online only: the player's tiles ('?' = blank), and whether they may place tiles now.
 	rack = $state<string[] | null>(null);
+	// The player's own order for their rack (never sent to the server).
+	rackOrder = $state<string[]>([]);
 	canPlay = $state(true);
+	// Online: words missing from the list block the move (the tracker only warns).
+	strictWords = $state(false);
 	// Goes up each time a submit is refused, so the page can react (e.g. a sound).
 	rejects = $state(0);
 
@@ -54,6 +84,7 @@ export class Game {
 		if (saved) {
 			this.players = saved.players;
 			this.colors = saved.colors ?? saved.players.map((_, i) => i);
+			this.avatars = saved.avatars ?? [];
 			this.turnMinutes = saved.turnMinutes ?? null;
 			this.moves = saved.moves;
 			this.end = saved.end;
@@ -65,16 +96,22 @@ export class Game {
 	replay = $derived.by(() => {
 		let board = emptyBoard();
 		const history: HistoryEntry[] = [];
-		for (const m of this.moves) {
+		let lastPlay: LastPlay | null = null;
+		for (const [seq, m] of this.moves.entries()) {
 			const score = m.kind === 'play' ? scoreMove(board, m.tiles) : null;
-			if (m.kind === 'play') board = withTiles(board, m.tiles);
+			if (m.kind === 'play') {
+				const cells = mainWordCells(board, m.tiles);
+				lastPlay = { seq, player: m.player, cells, placed: m.tiles, total: score!.total };
+				board = withTiles(board, m.tiles);
+			}
 			history.push({ player: m.player, kind: m.kind, score });
 		}
-		return { board, history };
+		return { board, history, lastPlay };
 	});
 
 	board: Board = $derived(this.replay.board);
 	history: HistoryEntry[] = $derived(this.replay.history);
+	lastPlay: LastPlay | null = $derived(this.replay.lastPlay);
 
 	adjust: number[] = $derived(
 		this.end ? endGameAdjust(this.end.leftovers, this.end.wentOut) : this.players.map(() => 0)
@@ -113,13 +150,25 @@ export class Game {
 		this.draft.length && !this.draftError ? scoreMove(this.board, this.draft) : null
 	);
 	unknownWords: string[] = $derived(this.unknownIn(this.draftScore));
+	canSubmit: boolean = $derived(
+		!!this.draftScore && !(this.strictWords && this.unknownWords.length)
+	);
 
 	overused: string[] = $derived(overusedLetters(withTiles(this.board, this.draft)));
 
 	// Rack tiles not yet in the draft.
-	rackLeft: string[] | null = $derived(
-		this.rack && (takeFromRack(this.rack, this.draft.map(rackLetter)) ?? [])
-	);
+	arrangedRack: string[] = $derived(arrangeRack(this.rackOrder, this.rack ?? []));
+	rackLeft: RackTile[] | null = $derived.by(() => {
+		if (!this.rack) return null;
+		const used = this.draft.map(rackLetter);
+		const left: RackTile[] = [];
+		this.arrangedRack.forEach((letter, slot) => {
+			const i = used.indexOf(letter);
+			if (i >= 0) used.splice(i, 1);
+			else left.push({ letter, slot });
+		});
+		return left;
+	});
 
 	unknownIn(score: MoveScore | null): string[] {
 		const words = this.words;
@@ -128,9 +177,15 @@ export class Game {
 	}
 
 	// Names must already be in turn order; colors default to seat order.
-	start(names: string[], colors = names.map((_, i) => i), turnMinutes: number | null = null) {
+	start(
+		names: string[],
+		colors = names.map((_, i) => i),
+		turnMinutes: number | null = null,
+		avatars: (number | null)[] = []
+	) {
 		this.players = names;
 		this.colors = colors;
+		this.avatars = avatars;
 		this.turnMinutes = turnMinutes;
 		this.moves = [];
 		this.end = null;
@@ -141,6 +196,7 @@ export class Game {
 	newGame() {
 		this.players = [];
 		this.colors = [];
+		this.avatars = [];
 		this.turnMinutes = null;
 		this.moves = [];
 		this.end = null;
@@ -150,6 +206,10 @@ export class Game {
 
 	color(player: number) {
 		return PLAYER_COLORS[this.colors[player] ?? player];
+	}
+
+	avatar(player: number): number | null {
+		return this.avatars[player] ?? null;
 	}
 
 	// Physical keyboard shortcuts; returns false for keys it doesn't use.
@@ -192,21 +252,63 @@ export class Game {
 		while (row < SIZE && col < SIZE && this.board[row][col]) ({ row, col } = this.step(row, col));
 		if (row >= SIZE || col >= SIZE) return;
 
-		const rest = this.draft.filter((t) => t.row !== row || t.col !== col);
-		const tile = { row, col, letter: letter.toUpperCase(), blank: this.blankNext };
-		if (this.rack) {
-			// Online: only letters on the rack; fall back to a blank when the letter is missing.
-			const left = takeFromRack(this.rack, rest.map(rackLetter)) ?? [];
-			if (!left.includes(rackLetter(tile))) {
-				if (tile.blank || !left.includes('?')) return;
-				tile.blank = true;
-			}
-		}
-		this.draft = [...rest, tile];
+		if (!this.putTile(row, col, letter, this.blankNext)) return;
 		this.blankNext = false;
 
 		const next = this.step(row, col);
 		this.cursor = next.row < SIZE && next.col < SIZE ? next : { row, col };
+	}
+
+	// Puts a draft tile on a square, replacing any draft tile there. Online, only rack letters
+	// are allowed, falling back to a blank when the letter is missing.
+	private putTile(row: number, col: number, letter: string, blank: boolean): boolean {
+		const rest = this.draft.filter((t) => t.row !== row || t.col !== col);
+		const tile = { row, col, letter: letter.toUpperCase(), blank };
+		if (this.rack) {
+			const left = takeFromRack(this.rack, rest.map(rackLetter)) ?? [];
+			if (!left.includes(rackLetter(tile))) {
+				if (tile.blank || !left.includes('?')) return false;
+				tile.blank = true;
+			}
+		}
+		this.draft = [...rest, tile];
+		return true;
+	}
+
+	// Drag and drop (online): place, move and take back draft tiles.
+	placeAt(row: number, col: number, letter: string, blank = false): boolean {
+		if (this.ended || !this.canPlay || this.board[row]?.[col] !== null) return false;
+		return this.putTile(row, col, letter, blank);
+	}
+
+	moveDraft(from: { row: number; col: number }, to: { row: number; col: number }): boolean {
+		if (this.ended || !this.canPlay || this.board[to.row]?.[to.col] !== null) return false;
+		const moving = this.draftAt(from.row, from.col);
+		if (!moving) return false;
+		const other = this.draftAt(to.row, to.col);
+		// Dropping onto another draft tile swaps the two.
+		this.draft = this.draft.map((t) =>
+			t === moving ? { ...t, ...to } : t === other ? { ...t, ...from } : t
+		);
+		return true;
+	}
+
+	removeDraftAt(row: number, col: number) {
+		if (this.ended || !this.canPlay) return;
+		this.draft = this.draft.filter((t) => t.row !== row || t.col !== col);
+	}
+
+	// from and to are slots in arrangedRack.
+	moveRackTile(from: number, to: number) {
+		const order = [...this.arrangedRack];
+		const [tile] = order.splice(from, 1);
+		if (tile === undefined) return;
+		order.splice(to, 0, tile);
+		this.rackOrder = order;
+	}
+
+	shuffleRack(random = Math.random) {
+		this.rackOrder = shuffle(this.arrangedRack, random);
 	}
 
 	backspace() {
@@ -228,7 +330,7 @@ export class Game {
 
 	submit(): boolean {
 		if (!this.draft.length || this.ended) return false;
-		if (this.draftError || !this.canPlay) {
+		if (this.draftError || !this.canPlay || !this.canSubmit) {
 			this.rejects++;
 			return false;
 		}
@@ -291,6 +393,7 @@ export class Game {
 			version: 1,
 			players: $state.snapshot(this.players),
 			colors: $state.snapshot(this.colors),
+			avatars: $state.snapshot(this.avatars),
 			turnMinutes: this.turnMinutes,
 			moves: $state.snapshot(this.moves),
 			end: $state.snapshot(this.end)

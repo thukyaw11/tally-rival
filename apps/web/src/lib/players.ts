@@ -8,7 +8,7 @@ export const PLAYER_COLORS = [
 
 export const initial = (name: string) => name.trim().charAt(0).toUpperCase() || '?';
 
-export type Seat = { name: string; color: number };
+export type Seat = { name: string; color: number; avatar: number | null };
 
 // Fisher-Yates shuffle; the result is the turn order.
 export function shuffle<T>(items: T[], random = Math.random): T[] {

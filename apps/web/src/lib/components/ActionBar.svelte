@@ -36,6 +36,6 @@
 		type="button"
 		class={[btn, 'btn-green']}
 		onclick={() => game.submit()}
-		disabled={!game.draftScore}><Check size={16} /> Submit</button
+		disabled={!game.canSubmit}><Check size={16} /> Submit</button
 	>
 </div>

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/thukyaw11/tally/apps/server/internal/game"
@@ -83,14 +84,15 @@ func New(svc *rooms.Service, corsOrigin string) http.Handler {
 
 	mux.HandleFunc("POST /rooms", func(w http.ResponseWriter, r *http.Request) {
 		var b struct {
-			Name        string `json:"name"`
-			TurnMinutes *int   `json:"turnMinutes"`
+			Name        string   `json:"name"`
+			TurnMinutes *float64 `json:"turnMinutes"`
+			Avatar      *int     `json:"avatar"`
 		}
 		if err := readJSON(r, &b); err != nil {
 			sendErr(w, err)
 			return
 		}
-		j, err := svc.Create(r.Context(), b.Name, b.TurnMinutes)
+		j, err := svc.Create(r.Context(), b.Name, b.TurnMinutes, b.Avatar)
 		if err != nil {
 			sendErr(w, err)
 			return
@@ -100,13 +102,14 @@ func New(svc *rooms.Service, corsOrigin string) http.Handler {
 
 	mux.HandleFunc("POST /rooms/{code}/join", func(w http.ResponseWriter, r *http.Request) {
 		var b struct {
-			Name string `json:"name"`
+			Name   string `json:"name"`
+			Avatar *int   `json:"avatar"`
 		}
 		if err := readJSON(r, &b); err != nil {
 			sendErr(w, err)
 			return
 		}
-		j, err := svc.Join(r.Context(), code(r), b.Name)
+		j, err := svc.Join(r.Context(), code(r), b.Name, b.Avatar)
 		if err != nil {
 			sendErr(w, err)
 			return
@@ -140,6 +143,10 @@ func New(svc *rooms.Service, corsOrigin string) http.Handler {
 		return svc.Start(r.Context(), code(r), id)
 	}))
 
+	mux.HandleFunc("POST /rooms/{code}/end", withPlayer(func(r *http.Request, id string) error {
+		return svc.EndGame(r.Context(), code(r), id)
+	}))
+
 	mux.HandleFunc("POST /rooms/{code}/move", withPlayer(func(r *http.Request, id string) error {
 		var m rooms.MoveRequest
 		if err := readJSON(r, &m); err != nil {
@@ -150,6 +157,49 @@ func New(svc *rooms.Service, corsOrigin string) http.Handler {
 		}
 		return svc.Move(r.Context(), code(r), id, m)
 	}))
+
+	// Chat routes answer with messages, not the whole view.
+	requirePlayer := func(w http.ResponseWriter, r *http.Request) (string, bool) {
+		me, err := svc.PlayerFor(r.Context(), code(r), token(r))
+		if err != nil {
+			sendErr(w, err)
+			return "", false
+		}
+		return me.ID, true
+	}
+
+	mux.HandleFunc("GET /rooms/{code}/chat", func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := requirePlayer(w, r); !ok {
+			return
+		}
+		after, _ := strconv.ParseInt(r.URL.Query().Get("after"), 10, 64)
+		msgs, err := svc.Messages(r.Context(), code(r), after)
+		if err != nil {
+			sendErr(w, err)
+			return
+		}
+		send(w, 200, map[string]any{"messages": msgs})
+	})
+
+	mux.HandleFunc("POST /rooms/{code}/chat", func(w http.ResponseWriter, r *http.Request) {
+		id, ok := requirePlayer(w, r)
+		if !ok {
+			return
+		}
+		var b struct {
+			Text string `json:"text"`
+		}
+		if err := readJSON(r, &b); err != nil {
+			sendErr(w, err)
+			return
+		}
+		m, err := svc.Chat(r.Context(), code(r), id, b.Text)
+		if err != nil {
+			sendErr(w, err)
+			return
+		}
+		send(w, 201, m)
+	})
 
 	// pusher-js sends a form body with socket_id and channel_name.
 	mux.HandleFunc("POST /pusher/auth", func(w http.ResponseWriter, r *http.Request) {

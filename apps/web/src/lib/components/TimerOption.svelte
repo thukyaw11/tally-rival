@@ -1,10 +1,18 @@
 <script lang="ts" module>
-	export const MIN = 2;
+	// 1:30 to 10:00 in half-minute steps.
+	export const MIN = 1.5;
 	export const MAX = 10;
+	export const STEP = 0.5;
 
 	// The minutes to send, or null with the timer off.
 	export const turnMinutes = (enabled: boolean, minutes: number) =>
-		enabled ? Math.min(MAX, Math.max(MIN, minutes)) : null;
+		enabled ? Math.min(MAX, Math.max(MIN, Math.round(minutes / STEP) * STEP)) : null;
+
+	// 1.5 → "1:30", 2 → "2:00".
+	export const formatMinutes = (minutes: number) => {
+		const seconds = Math.round(minutes * 60);
+		return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+	};
 </script>
 
 <script lang="ts">
@@ -12,7 +20,7 @@
 
 	let {
 		enabled = $bindable(false),
-		minutes = $bindable(MIN)
+		minutes = $bindable(2)
 	}: { enabled?: boolean; minutes?: number } = $props();
 </script>
 
@@ -30,19 +38,20 @@
 		<div class="flex flex-col gap-1">
 			<div class="flex items-baseline justify-between text-sm">
 				<span class="opacity-70">Time per turn</span>
-				<span class="text-lg font-bold tabular-nums">{minutes} min</span>
+				<span class="text-lg font-bold tabular-nums">{formatMinutes(minutes)}</span>
 			</div>
 			<input
 				type="range"
 				bind:value={minutes}
 				min={MIN}
 				max={MAX}
-				step="1"
-				aria-label="Minutes per turn"
+				step={STEP}
+				aria-label="Time per turn"
+				aria-valuetext={`${formatMinutes(minutes)} per turn`}
 				class="w-full accent-green-600"
 			/>
 			<div class="flex justify-between text-xs opacity-50">
-				<span>{MIN} min</span><span>{MAX} min</span>
+				<span>{formatMinutes(MIN)}</span><span>{formatMinutes(MAX)}</span>
 			</div>
 		</div>
 	{/if}

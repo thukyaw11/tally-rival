@@ -34,4 +34,23 @@ describe('Game.unknownWords', () => {
 		typeAtCenter(game, 'CXT');
 		expect(game.unknownWords).toEqual([]);
 	});
+
+	it('blocks the move online when a word is missing, but only warns in the tracker', () => {
+		const game = new Game(false);
+		game.start(['Ann', 'Bo']);
+		game.words = new Set(['CAT']);
+		typeAtCenter(game, 'CXT');
+		expect(game.canSubmit).toBe(true);
+		game.strictWords = true;
+		expect(game.canSubmit).toBe(false);
+		expect(game.submit()).toBe(false);
+		expect(game.rejects).toBe(1);
+		expect(game.moves).toHaveLength(0);
+		game.clearDraft();
+		// Tapping the same square again would turn the word downwards.
+		game.cursor = null;
+		typeAtCenter(game, 'CAT');
+		expect(game.canSubmit).toBe(true);
+		expect(game.submit()).toBe(true);
+	});
 });

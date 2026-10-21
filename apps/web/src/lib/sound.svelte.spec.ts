@@ -21,4 +21,14 @@ describe('Sound', () => {
 		// Headless browsers may keep audio suspended; either way it must not throw.
 		expect(typeof s.play('bingo')).toBe('boolean');
 	});
+
+	it('loads the recorded time-up and game-over sounds', async () => {
+		const s = new Sound();
+		expect(s.hasFile('win')).toBe(false);
+		window.dispatchEvent(new KeyboardEvent('keydown'));
+		await expect.poll(() => s.hasFile('win') && s.hasFile('buzzer'), { timeout: 5000 }).toBe(true);
+		expect(s.hasFile('tick')).toBe(false);
+		// Stopping a sound that isn't playing is harmless.
+		s.stop('buzzer');
+	});
 });

@@ -9,6 +9,8 @@ export type SaveData = {
 	version: 1;
 	players: string[];
 	colors?: number[];
+	// Index into AVATARS per player (missing in older saves = initials).
+	avatars?: (number | null)[];
 	turnMinutes?: number | null;
 	moves: Move[];
 	end: EndState | null;

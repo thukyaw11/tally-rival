@@ -14,8 +14,25 @@
 		game,
 		onendgame,
 		onswap,
-		canSwap = true
-	}: { game: Game; onendgame?: () => void; onswap?: () => void; canSwap?: boolean } = $props();
+		canSwap = true,
+		onendonline
+	}: {
+		game: Game;
+		onendgame?: () => void;
+		onswap?: () => void;
+		canSwap?: boolean;
+		// Online host only: end the game for everyone.
+		onendonline?: () => void;
+	} = $props();
+
+	function endOnline() {
+		if (
+			confirm(
+				'End the game for everyone now? Leftover tiles are subtracted and the highest score wins.'
+			)
+		)
+			onendonline?.();
+	}
 
 	let open = $state(false);
 
@@ -80,6 +97,15 @@
 					role="menuitem"
 					class={[item, 'text-rose-600']}
 					onclick={() => run(newGame)}><RotateCcw size={16} /> New game</button
+				>
+			{/if}
+			{#if onendonline}
+				<button
+					type="button"
+					role="menuitem"
+					class={[item, 'text-rose-600']}
+					disabled={game.ended}
+					onclick={() => run(endOnline)}><Flag size={16} /> End game</button
 				>
 			{/if}
 			<button

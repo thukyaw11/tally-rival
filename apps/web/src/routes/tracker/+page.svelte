@@ -26,10 +26,13 @@
 	let setupNames = $state(['', '']);
 	let setupMinutes = $state<number | null>(null);
 
-	function onsetup(names: string[], turnMinutes: number | null) {
+	let setupAvatars = $state<number[]>([]);
+
+	function onsetup(names: string[], turnMinutes: number | null, avatars: number[]) {
 		setupNames = names;
+		setupAvatars = avatars;
 		setupMinutes = turnMinutes;
-		seats = shuffle(names.map((name, color) => ({ name, color })));
+		seats = shuffle(names.map((name, color) => ({ name, color, avatar: avatars[color] })));
 	}
 
 	function startGame() {
@@ -37,7 +40,8 @@
 		game.start(
 			seats.map((s) => s.name),
 			seats.map((s) => s.color),
-			setupMinutes
+			setupMinutes,
+			seats.map((s) => s.avatar)
 		);
 		seats = null;
 	}
@@ -52,7 +56,10 @@
 
 <svelte:window {onkeydown} />
 
-<main class="mx-auto flex min-h-dvh max-w-6xl flex-col gap-4 px-4 py-4">
+<!-- On desktop a running game fits one screen; History scrolls inside. -->
+<main
+	class={['mx-auto flex min-h-dvh max-w-6xl flex-col gap-4 px-4 py-4', game.started && 'lg:h-dvh']}
+>
 	<header class="flex items-center justify-between gap-2">
 		{#if game.started}<Logo />{:else}<a
 				href={resolve('/')}
@@ -79,16 +86,25 @@
 					onback={() => (seats = null)}
 				/>
 			{:else}
-				<Setup onstart={onsetup} initialNames={setupNames} initialMinutes={setupMinutes} />
+				<Setup
+					onstart={onsetup}
+					initialNames={setupNames}
+					initialMinutes={setupMinutes}
+					initialAvatars={setupAvatars}
+				/>
 			{/if}
 		</div>
 	{:else}
 		<GameSounds {game} />
-		<div class="flex flex-col gap-4 lg:flex-row lg:items-start">
-			<div class="w-full lg:max-w-[640px] lg:flex-1">
+		<div class="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row lg:items-stretch">
+			<!-- On desktop the board also fits the window height. -->
+			<div class="w-full lg:max-w-[min(640px,calc(100dvh-7rem))] lg:flex-1">
 				<Board {game} />
 			</div>
-			<div class="flex w-full flex-col gap-4 lg:w-96">
+			<!-- Padding keeps the turn badge and card outline from being clipped by the scroll box. -->
+			<div
+				class="flex w-full flex-col gap-4 lg:-mx-1.5 lg:min-h-0 lg:w-99 lg:overflow-y-auto lg:px-1.5 lg:pt-2.5"
+			>
 				<Scoreboard {game} timeLeft={game.turnMinutes ? timeLeft : null} />
 				{#if !game.ended}
 					{#if game.turnMinutes}
@@ -97,7 +113,7 @@
 					<ActionBar {game} />
 				{/if}
 				<EndGame {game} bind:open={endGameOpen} />
-				<History {game} />
+				<History {game} class="lg:min-h-40 lg:flex-1" />
 			</div>
 		</div>
 	{/if}

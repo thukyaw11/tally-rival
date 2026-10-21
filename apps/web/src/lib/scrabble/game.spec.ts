@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Game } from './game.svelte';
+import { arrangeRack, Game } from './game.svelte';
 
 function play(game: Game, row: number, col: number, letters: string, down = false) {
 	game.tapCell(row, col);
@@ -28,6 +28,32 @@ describe('Game', () => {
 		expect(game.turnMinutes).toBe(2);
 		game.newGame();
 		expect(game.turnMinutes).toBeNull();
+	});
+
+	it("keeps each player's avatar", () => {
+		const game = new Game(false);
+		game.start(['Ann', 'Bo'], [1, 0], null, [5, null]);
+		expect(game.avatar(0)).toBe(5);
+		expect(game.avatar(1)).toBeNull();
+		expect(game.avatar(3)).toBeNull();
+		game.newGame();
+		expect(game.avatars).toEqual([]);
+	});
+
+	it('remembers the last word played', () => {
+		const game = new Game(false);
+		game.start(['Ann', 'Bo']);
+		expect(game.lastPlay).toBeNull();
+		play(game, 7, 6, 'CAT');
+		play(game, 7, 9, 'S');
+		expect(game.lastPlay).toMatchObject({ seq: 1, player: 1, total: 6 });
+		expect(game.lastPlay?.cells).toHaveLength(4);
+		game.pass();
+		expect(game.lastPlay?.seq).toBe(1);
+		game.undo();
+		game.undo();
+		game.undo();
+		expect(game.lastPlay).toBeNull();
 	});
 
 	it('rejects a bad move and keeps the turn', () => {
@@ -172,6 +198,78 @@ describe('Game', () => {
 			game.pass();
 			expect(game.draft).toHaveLength(0);
 			expect(sent).toHaveLength(0);
+		});
+	});
+
+	describe('drag and drop', () => {
+		function online(rack: string[]) {
+			const game = new Game(false);
+			game.start(['Ann', 'Bo']);
+			game.rack = rack;
+			return game;
+		}
+		const letters = (game: Game) => game.rackLeft?.map((t) => t.letter).join('');
+
+		it("keeps the player's rack order through refills", () => {
+			expect(arrangeRack(['T', 'A', 'C'], ['C', 'A', 'T'])).toEqual(['T', 'A', 'C']);
+			expect(arrangeRack(['T', 'A', 'C'], ['A', 'Q', 'C', 'E'])).toEqual(['A', 'C', 'Q', 'E']);
+			expect(arrangeRack(['A', 'A'], ['A', 'B', 'A'])).toEqual(['A', 'A', 'B']);
+		});
+
+		it('places rack tiles on chosen squares, replacing a draft tile there', () => {
+			const game = online(['C', 'A', 'T', '?']);
+			expect(game.placeAt(7, 7, 'C')).toBe(true);
+			expect(game.placeAt(7, 8, 'A')).toBe(true);
+			expect(letters(game)).toBe('T?');
+			// Not on the rack: the blank stands in.
+			expect(game.placeAt(7, 9, 'S')).toBe(true);
+			expect(game.draftAt(7, 9)).toMatchObject({ letter: 'S', blank: true });
+			expect(game.placeAt(7, 10, 'Q')).toBe(false);
+			// Dropping T on the A sends the A back.
+			expect(game.placeAt(7, 8, 'T')).toBe(true);
+			expect(letters(game)).toBe('A');
+		});
+
+		it('moves, swaps and takes back draft tiles, never onto played squares', () => {
+			const game = online(['C', 'A', 'T']);
+			game.placeAt(7, 7, 'C');
+			game.placeAt(7, 8, 'A');
+			expect(game.moveDraft({ row: 7, col: 8 }, { row: 8, col: 7 })).toBe(true);
+			expect(game.draftAt(8, 7)?.letter).toBe('A');
+			expect(game.moveDraft({ row: 8, col: 7 }, { row: 7, col: 7 })).toBe(true);
+			expect([game.draftAt(7, 7)?.letter, game.draftAt(8, 7)?.letter]).toEqual(['A', 'C']);
+			game.removeDraftAt(8, 7);
+			expect(letters(game)).toBe('CT');
+
+			game.rack = null;
+			game.placeAt(7, 6, 'C');
+			game.placeAt(7, 8, 'T');
+			game.submit();
+			game.rack = ['S', 'E'];
+			game.placeAt(6, 7, 'S');
+			expect(game.moveDraft({ row: 6, col: 7 }, { row: 7, col: 7 })).toBe(false);
+			expect(game.placeAt(7, 6, 'E')).toBe(false);
+		});
+
+		it('reorders and shuffles the rack without losing tiles', () => {
+			const game = online(['C', 'A', 'T', 'S']);
+			game.moveRackTile(3, 0);
+			expect(game.arrangedRack).toEqual(['S', 'C', 'A', 'T']);
+			game.shuffleRack(() => 0);
+			expect([...game.arrangedRack].sort()).toEqual(['A', 'C', 'S', 'T']);
+			// Placing a tile hides it from the rack but keeps the others' slots.
+			game.placeAt(7, 7, 'A');
+			expect(game.rackLeft?.map((t) => t.letter).sort()).toEqual(['C', 'S', 'T']);
+		});
+
+		it('does nothing when it is not your turn', () => {
+			const game = online(['C', 'A']);
+			game.placeAt(7, 7, 'C');
+			game.canPlay = false;
+			expect(game.placeAt(7, 8, 'A')).toBe(false);
+			expect(game.moveDraft({ row: 7, col: 7 }, { row: 8, col: 7 })).toBe(false);
+			game.removeDraftAt(7, 7);
+			expect(game.draft).toHaveLength(1);
 		});
 	});
 });

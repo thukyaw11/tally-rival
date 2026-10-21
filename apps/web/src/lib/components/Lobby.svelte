@@ -4,7 +4,9 @@
 	import Timer from '@lucide/svelte/icons/timer';
 	import { MAX_PLAYERS } from '@tally/game';
 	import { resolve } from '$app/paths';
-	import { initial, PLAYER_COLORS } from '#lib/players.ts';
+	import { formatMinutes } from '#lib/components/TimerOption.svelte';
+	import Avatar from '#lib/components/Avatar.svelte';
+	import { PLAYER_COLORS } from '#lib/players.ts';
 	import type { OnlineRoom } from '#lib/online/room.svelte.ts';
 	import { sound } from '#lib/sound.svelte.ts';
 
@@ -45,7 +47,7 @@
 		{#if view.turnMinutes}
 			<p class="flex items-center gap-1 text-sm opacity-70">
 				<Timer size={14} />
-				{view.turnMinutes} min per turn
+				{formatMinutes(view.turnMinutes)} per turn
 			</p>
 		{/if}
 	</div>
@@ -56,10 +58,7 @@
 			{#each view.players as p (p.id)}
 				{@const away = room.here.length > 0 && !room.here.includes(p.id)}
 				<li class="flex items-center gap-2">
-					<span
-						class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold text-white"
-						style={`background: ${PLAYER_COLORS[p.color].bg}`}>{initial(p.name)}</span
-					>
+					<Avatar name={p.name} avatar={p.avatar} bg={PLAYER_COLORS[p.color].bg} size="md" />
 					<span class="min-w-0 flex-1 truncate font-medium" class:opacity-50={away}>
 						{p.name}{p.id === view.you ? ' (you)' : ''}
 					</span>

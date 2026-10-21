@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"log"
+	"math"
 	mrand "math/rand/v2"
 	"net/url"
 	"regexp"
@@ -39,7 +40,9 @@ type Player struct {
 	Name  string `json:"name"`
 	Color int    `json:"color"`
 	Seat  *int   `json:"seat"`
-	rack  []string
+	// Index into the avatar list; nil for players who didn't pick one.
+	Avatar *int `json:"avatar"`
+	rack   []string
 }
 
 // Player is a seat index.
@@ -54,6 +57,8 @@ type Move struct {
 type End struct {
 	WentOut   *int     `json:"wentOut"`
 	Leftovers []string `json:"leftovers"`
+	// Set when the host ended the game early (their player id).
+	EndedBy *string `json:"endedBy,omitempty"`
 }
 
 // State is what everyone in the room may see. Players are in seat order once the game starts.
@@ -61,7 +66,7 @@ type State struct {
 	Code          string     `json:"code"`
 	Status        string     `json:"status"`
 	HostID        string     `json:"hostId"`
-	TurnMinutes   *int       `json:"turnMinutes"`
+	TurnMinutes   *float64   `json:"turnMinutes"`
 	Players       []Player   `json:"players"`
 	Moves         []Move     `json:"moves"`
 	BagCount      int        `json:"bagCount"`
@@ -107,10 +112,13 @@ type Service struct {
 
 	mu     sync.Mutex
 	timers map[string]*time.Timer
+
+	chatMu sync.Mutex
+	sent   map[string][]time.Time
 }
 
 func New(db *pgxpool.Pool, rt realtime.Realtime) *Service {
-	return &Service{db: db, rt: rt, Minute: time.Minute, Grace: 15 * time.Second, timers: map[string]*time.Timer{}}
+	return &Service{db: db, rt: rt, Minute: time.Minute, Grace: 15 * time.Second, timers: map[string]*time.Timer{}, sent: map[string][]time.Time{}}
 }
 
 type querier interface {
@@ -145,9 +153,10 @@ func cleanName(name string) (string, error) {
 	return n, nil
 }
 
-func cleanMinutes(m *int) error {
-	if m != nil && (*m < 2 || *m > 10) {
-		return fail(400, "Turn timer must be 2–10 minutes")
+// Turn timer: 1:30 to 10:00 in half-minute steps.
+func cleanMinutes(m *float64) error {
+	if m != nil && (*m < 1.5 || *m > 10 || *m*2 != math.Trunc(*m*2)) {
+		return fail(400, "Turn timer must be 1:30–10:00 in 30-second steps")
 	}
 	return nil
 }
@@ -167,11 +176,11 @@ func load(ctx context.Context, q querier, code string, lock bool) (*loaded, erro
 		return nil, err
 	}
 
-	rows, _ := q.Query(ctx, `SELECT id::text, name, color, seat, rack FROM players
+	rows, _ := q.Query(ctx, `SELECT id::text, name, color, seat, avatar, rack FROM players
 		WHERE room_code = $1 ORDER BY seat NULLS LAST, color`, code)
 	l.Players, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (Player, error) {
 		var p Player
-		err := row.Scan(&p.ID, &p.Name, &p.Color, &p.Seat, &p.rack)
+		err := row.Scan(&p.ID, &p.Name, &p.Color, &p.Seat, &p.Avatar, &p.rack)
 		return p, err
 	})
 	if err != nil {
@@ -218,8 +227,12 @@ func endOf(moves []Move, racks [][]string, bag []string, seat int) *End {
 
 func (s *Service) notify(code string) {
 	if err := s.rt.Trigger(realtime.RoomChannel(code), "updated", map[string]any{}); err != nil {
-		log.Printf("realtime trigger failed for %s: %v", code, err)
+		s.notifyFailed(code, err)
 	}
+}
+
+func (s *Service) notifyFailed(code string, err error) {
+	log.Printf("realtime trigger failed for %s: %v", code, err)
 }
 
 // schedule sets up the auto-pass for the current turn, replacing any earlier one.
@@ -234,7 +247,7 @@ func (s *Service) schedule(l *loaded) {
 		return
 	}
 	code, seq := l.Code, len(l.Moves)
-	deadline := l.TurnStartedAt.Add(time.Duration(*l.TurnMinutes)*s.Minute + s.Grace)
+	deadline := l.TurnStartedAt.Add(time.Duration(*l.TurnMinutes*float64(s.Minute)) + s.Grace)
 	var t *time.Timer
 	t = time.AfterFunc(time.Until(deadline), func() {
 		s.mu.Lock()
@@ -304,7 +317,11 @@ func (s *Service) applyMove(ctx context.Context, code, playerID string, timerSeq
 				return fail(400, "Those tiles are not on your rack")
 			}
 			tiles = req.Tiles
-			score = game.ScoreMove(board, tiles).Total
+			scored := game.ScoreMove(board, tiles)
+			if bad := game.InvalidWords(scored); len(bad) > 0 {
+				return fail(400, "Not in the word list: "+strings.Join(bad, ", "))
+			}
+			score = scored.Total
 			drawn, left := game.DrawTiles(bag, game.RackSize-len(kept), rnd)
 			rack, bag = append(kept, drawn...), left
 		case "swap":
@@ -362,9 +379,19 @@ func (s *Service) PlayerFor(ctx context.Context, code, token string) (realtime.U
 	return u, err
 }
 
-func (s *Service) Create(ctx context.Context, name string, turnMinutes *int) (*Joined, error) {
+func cleanAvatar(a *int) error {
+	if a != nil && (*a < 0 || *a >= game.AvatarCount) {
+		return fail(400, "Unknown avatar")
+	}
+	return nil
+}
+
+func (s *Service) Create(ctx context.Context, name string, turnMinutes *float64, avatar *int) (*Joined, error) {
 	n, err := cleanName(name)
 	if err != nil {
+		return nil, err
+	}
+	if err := cleanAvatar(avatar); err != nil {
 		return nil, err
 	}
 	if err := cleanMinutes(turnMinutes); err != nil {
@@ -390,8 +417,8 @@ func (s *Service) Create(ctx context.Context, name string, turnMinutes *int) (*J
 		if _, err := tx.Exec(ctx, `INSERT INTO rooms (code, turn_minutes) VALUES ($1, $2)`, code, turnMinutes); err != nil {
 			return err
 		}
-		if err := tx.QueryRow(ctx, `INSERT INTO players (room_code, name, color, token_hash)
-			VALUES ($1, $2, 0, $3) RETURNING id::text`, code, n, HashToken(j.Token)).Scan(&j.PlayerID); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO players (room_code, name, color, avatar, token_hash)
+			VALUES ($1, $2, 0, $3, $4) RETURNING id::text`, code, n, avatar, HashToken(j.Token)).Scan(&j.PlayerID); err != nil {
 			return err
 		}
 		_, err := tx.Exec(ctx, `UPDATE rooms SET host_id = $1 WHERE code = $2`, j.PlayerID, code)
@@ -403,9 +430,12 @@ func (s *Service) Create(ctx context.Context, name string, turnMinutes *int) (*J
 	return j, nil
 }
 
-func (s *Service) Join(ctx context.Context, code, name string) (*Joined, error) {
+func (s *Service) Join(ctx context.Context, code, name string, avatar *int) (*Joined, error) {
 	n, err := cleanName(name)
 	if err != nil {
+		return nil, err
+	}
+	if err := cleanAvatar(avatar); err != nil {
 		return nil, err
 	}
 	j := &Joined{Code: code, Token: newToken()}
@@ -428,8 +458,8 @@ func (s *Service) Join(ctx context.Context, code, name string) (*Joined, error) 
 		for used[color] {
 			color++
 		}
-		return tx.QueryRow(ctx, `INSERT INTO players (room_code, name, color, token_hash)
-			VALUES ($1, $2, $3, $4) RETURNING id::text`, code, n, color, HashToken(j.Token)).Scan(&j.PlayerID)
+		return tx.QueryRow(ctx, `INSERT INTO players (room_code, name, color, avatar, token_hash)
+			VALUES ($1, $2, $3, $4, $5) RETURNING id::text`, code, n, color, avatar, HashToken(j.Token)).Scan(&j.PlayerID)
 	})
 	if err != nil {
 		return nil, err
@@ -486,6 +516,33 @@ func (s *Service) View(ctx context.Context, code, playerID string) (*View, error
 		}
 	}
 	return v, nil
+}
+
+// EndGame lets the host stop a running game. Everyone keeps their score minus their leftover
+// tiles (nobody went out), and the highest final score wins.
+func (s *Service) EndGame(ctx context.Context, code, playerID string) error {
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		l, err := load(ctx, tx, code, true)
+		if err != nil {
+			return err
+		}
+		if l.HostID != playerID {
+			return fail(403, "Only the host can end the game")
+		}
+		if l.Status != "playing" {
+			return fail(409, "The game is not running")
+		}
+		end := &End{Leftovers: make([]string, len(l.Players)), EndedBy: &playerID}
+		for i, p := range l.Players {
+			end.Leftovers[i] = strings.Join(p.rack, "")
+		}
+		_, err = tx.Exec(ctx, `UPDATE rooms SET status = 'ended', "end" = $1 WHERE code = $2`, end, code)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	return s.changed(ctx, code)
 }
 
 func (s *Service) Move(ctx context.Context, code, playerID string, req MoveRequest) error {

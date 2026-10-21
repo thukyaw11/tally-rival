@@ -6,10 +6,19 @@
 	import { resolve } from '$app/paths';
 	import Logo from '#lib/components/Logo.svelte';
 	import TimerOption, { turnMinutes } from '#lib/components/TimerOption.svelte';
+	import YouCard from '#lib/components/YouCard.svelte';
 	import { api } from '#lib/online/api.ts';
-	import { loadName, saveName, saveSession, type Session } from '#lib/online/session.ts';
+	import {
+		loadAvatar,
+		loadName,
+		saveAvatar,
+		saveName,
+		saveSession,
+		type Session
+	} from '#lib/online/session.ts';
 
 	let name = $state(loadName());
+	let avatar = $state(loadAvatar());
 	let code = $state('');
 	let useTimer = $state(false);
 	let minutes = $state(2);
@@ -24,6 +33,7 @@
 			const session = await call();
 			saveSession(session);
 			saveName(name.trim());
+			saveAvatar(avatar);
 			await goto(resolve('/online/[code]', { code: session.code }));
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -34,11 +44,11 @@
 
 	const create = (e: SubmitEvent) => {
 		e.preventDefault();
-		enter(() => api.create(name.trim(), turnMinutes(useTimer, minutes)));
+		enter(() => api.create(name.trim(), turnMinutes(useTimer, minutes), avatar));
 	};
 	const join = (e: SubmitEvent) => {
 		e.preventDefault();
-		enter(() => api.join(code, name.trim()));
+		enter(() => api.join(code, name.trim(), avatar));
 	};
 
 	const field =
@@ -52,10 +62,7 @@
 	<div class="flex flex-1 flex-col items-center justify-center gap-6 pb-16">
 		<Logo size="lg" />
 		<div class="flex w-full max-w-sm flex-col gap-4">
-			<label class="flex flex-col gap-1 panel p-4">
-				<span class="font-bold">Your name</span>
-				<input bind:value={name} maxlength="20" placeholder="e.g. Ann" class={field} />
-			</label>
+			<YouCard bind:name bind:avatar />
 
 			<form onsubmit={create} class="flex flex-col gap-3 panel p-4">
 				<h2 class="text-lg font-bold">Start a new room</h2>

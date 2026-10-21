@@ -50,6 +50,7 @@
 		void game.moves.length;
 		void game.current;
 		localStart = now = Date.now();
+		sound.stop('buzzer');
 	});
 
 	$effect(() => {
@@ -57,17 +58,37 @@
 		return () => clearInterval(id);
 	});
 
+	// The turn (by its start time) the dialog was shown for. Online the start time only changes
+	// when the server's reply arrives, so the dialog can't reopen while a pass is on its way.
+	let shownFor = $state<number | null>(null);
+	// Frozen when the dialog opens, so it can't switch to the next player's name.
+	let timedOut = $state('');
+
 	$effect(() => {
-		if (remaining === 0 && !timeUp && canAct) {
+		if (remaining === 0 && canAct && shownFor !== startedAt) {
+			shownFor = startedAt;
+			timedOut = name;
 			timeUp = true;
 			sound.play('buzzer');
 			dialog.showModal();
 		}
 	});
 
-	function finish(chosen: 'pass' | 'swap') {
+	// The turn moved on without an answer (e.g. the server passed for the player).
+	$effect(() => {
+		if (timeUp && (startedAt !== shownFor || !canAct)) close();
+	});
+
+	function close() {
+		sound.stop('buzzer');
 		timeUp = false;
-		dialog.close();
+		if (dialog.open) dialog.close();
+	}
+
+	function finish(chosen: 'pass' | 'swap') {
+		// A second click (or Escape) after answering does nothing.
+		if (!timeUp) return;
+		close();
 		game.pass(chosen);
 	}
 </script>
@@ -82,7 +103,7 @@
 >
 	<div class="flex flex-col gap-3 p-4">
 		<p class="flex items-center gap-2 text-xl font-bold">
-			<Timer size={22} class="text-rose-600" /> Time's up, {name}!
+			<Timer size={22} class="text-rose-600" /> Time's up, {timedOut}!
 		</p>
 		<div class="flex gap-2">
 			<button

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import {
 	emptyBoard,
 	endGameAdjust,
+	mainWordCells,
 	scoreMove,
 	validatePlacement,
 	withTiles,
@@ -107,5 +108,27 @@ describe('endGameAdjust', () => {
 
 	it('only subtracts when nobody went out', () => {
 		expect(endGameAdjust(['E', 'K'], null)).toEqual([-1, -5]);
+	});
+});
+
+describe('mainWordCells', () => {
+	const at = (cells: { row: number; col: number }[]) => cells.map((c) => `${c.row},${c.col}`);
+	const cat = withTiles(emptyBoard(), word('CAT', 7, 6));
+
+	it('covers a first word', () => {
+		expect(at(mainWordCells(emptyBoard(), word('CAT', 7, 6)))).toEqual(['7,6', '7,7', '7,8']);
+	});
+
+	it('includes tiles already on the board', () => {
+		expect(at(mainWordCells(cat, word('S', 7, 9)))).toEqual(['7,6', '7,7', '7,8', '7,9']);
+		expect(at(mainWordCells(cat, word('O_X', 6, 7, true)))).toEqual(['6,7', '7,7', '8,7']);
+	});
+
+	it('uses the down word for a single tile with no across word', () => {
+		expect(at(mainWordCells(cat, word('O', 6, 7)))).toEqual(['6,7', '7,7']);
+	});
+
+	it('returns only the main word of a parallel play', () => {
+		expect(at(mainWordCells(cat, word('AN', 8, 7)))).toEqual(['8,7', '8,8']);
 	});
 });

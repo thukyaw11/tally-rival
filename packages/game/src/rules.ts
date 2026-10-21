@@ -143,6 +143,26 @@ export function scoreMove(board: Board, tiles: PlacedTile[]): MoveScore {
 	return { words, bingo, total };
 }
 
+// Squares of the main word a move makes, in reading order. `board` is the board before the move.
+export function mainWordCells(board: Board, tiles: PlacedTile[]): { row: number; col: number }[] {
+	if (!tiles.length) return [];
+	const filled = withTiles(board, tiles);
+	const run = (dr: number, dc: number) => {
+		let { row: r, col: c } = tiles[0];
+		while (inBounds(r - dr, c - dc) && filled[r - dr][c - dc]) {
+			r -= dr;
+			c -= dc;
+		}
+		const cells: { row: number; col: number }[] = [];
+		for (; inBounds(r, c) && filled[r][c]; r += dr, c += dc) cells.push({ row: r, col: c });
+		return cells;
+	};
+	if (tiles.length > 1) return tiles.every((t) => t.row === tiles[0].row) ? run(0, 1) : run(1, 0);
+	// One tile: the across word if there is one, else the down word.
+	const across = run(0, 1);
+	return across.length > 1 ? across : run(1, 0);
+}
+
 // Letters used more often than the bag holds (blanks count separately).
 export function overusedLetters(board: Board): string[] {
 	const used: Record<string, number> = {};

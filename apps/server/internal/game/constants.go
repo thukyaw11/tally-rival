@@ -8,6 +8,8 @@ const (
 	BingoBonus = 50
 	RackSize   = 7
 	BlankCount = 2
+	// Length of AVATARS in packages/game/src/avatars.ts; players store an index into it.
+	AvatarCount = 24
 )
 
 var LetterValues = map[byte]int{

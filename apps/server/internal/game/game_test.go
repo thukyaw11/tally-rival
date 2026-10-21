@@ -28,6 +28,7 @@ func TestConstantsMatchTS(t *testing.T) {
 		LetterValues map[string]int `json:"letterValues"`
 		TileCounts   map[string]int `json:"tileCounts"`
 		BlankCount   int            `json:"blankCount"`
+		AvatarCount  int            `json:"avatarCount"`
 	}
 	readFixture(t, "constants.json", &c)
 	toStr := func(m map[byte]int) map[string]int {
@@ -45,6 +46,9 @@ func TestConstantsMatchTS(t *testing.T) {
 	}
 	if BlankCount != c.BlankCount {
 		t.Errorf("blank count %d, TS has %d", BlankCount, c.BlankCount)
+	}
+	if AvatarCount != c.AvatarCount {
+		t.Errorf("avatar count %d, TS has %d", AvatarCount, c.AvatarCount)
 	}
 }
 
@@ -125,5 +129,37 @@ func TestSwap(t *testing.T) {
 	}
 	if _, _, err := SwapTiles([]string{"A"}, []string{"B", "C"}, []string{"A"}, rnd); err == nil {
 		t.Fatal("swap with a small bag should fail")
+	}
+}
+
+func TestWordListMatchesWeb(t *testing.T) {
+	web, err := os.ReadFile("../../../web/static/words/words.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(web) != wordList {
+		t.Fatal("internal/game/words.txt differs from apps/web/static/words/words.txt; copy it over")
+	}
+}
+
+func TestWords(t *testing.T) {
+	for _, w := range []string{"CAT", "cat", "QI", "ZA", "cAT"} {
+		if !IsWord(w) {
+			t.Errorf("%s should be a word", w)
+		}
+	}
+	for _, w := range []string{"CXT", "NR", ""} {
+		if IsWord(w) {
+			t.Errorf("%q should not be a word", w)
+		}
+	}
+	var board Board
+	board = board.WithTiles([]PlacedTile{{Row: 7, Col: 6, Letter: "C"}, {Row: 7, Col: 7, Letter: "A"}, {Row: 7, Col: 8, Letter: "T"}})
+	// "OAX" down through the A is not a word; "CATS" is.
+	if bad := InvalidWords(ScoreMove(board, []PlacedTile{{Row: 6, Col: 7, Letter: "O"}, {Row: 8, Col: 7, Letter: "X"}})); len(bad) != 1 || bad[0] != "OAX" {
+		t.Errorf("bad words: %v", bad)
+	}
+	if bad := InvalidWords(ScoreMove(board, []PlacedTile{{Row: 7, Col: 9, Letter: "S"}})); len(bad) != 0 {
+		t.Errorf("CATS flagged: %v", bad)
 	}
 }

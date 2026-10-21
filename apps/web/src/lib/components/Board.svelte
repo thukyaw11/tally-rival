@@ -3,9 +3,43 @@
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Star from '@lucide/svelte/icons/star';
 	import { LETTER_VALUES, PREMIUMS, SIZE, CENTER } from '@tally/game';
-	import type { Game } from '#lib/scrabble/game.svelte.ts';
+	import { untrack } from 'svelte';
+	import type { TileDrag } from '#lib/online/drag.svelte.ts';
+	import type { Game, LastPlay } from '#lib/scrabble/game.svelte.ts';
 
-	let { game }: { game: Game } = $props();
+	// drag (online only): rack tiles drop onto squares, and draft tiles can be dragged.
+	let { game, drag = null }: { game: Game; drag?: TileDrag | null } = $props();
+
+	// Highlight a newly played word for 4 s; skip the first run so a page load doesn't flash old moves.
+	const FLASH_MS = 4000;
+	let flash = $state.raw<LastPlay | null>(null);
+	let seenSeq: number | null = null;
+	let started = false;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	$effect(() => () => clearTimeout(timer));
+	$effect(() => {
+		const last = game.lastPlay;
+		const seq = last?.seq ?? null;
+		const isNew = started && seq !== null && (seenSeq === null || seq > seenSeq);
+		started = true;
+		seenSeq = seq;
+		// Passes re-run this too; they must not cut the highlight short.
+		untrack(() => {
+			if (isNew) {
+				clearTimeout(timer);
+				flash = last;
+				timer = setTimeout(() => (flash = null), FLASH_MS);
+			} else if (flash && flash.seq !== seq) {
+				// Undo or edit took the word back.
+				clearTimeout(timer);
+				flash = null;
+			}
+		});
+	});
+	const flashAt = (row: number, col: number) =>
+		flash?.cells.findIndex((c) => c.row === row && c.col === col) ?? -1;
+	const placedAt = (row: number, col: number) =>
+		!!flash?.placed.some((t) => t.row === row && t.col === col);
 
 	const premiumStyle = {
 		TW: 'bg-[#e5484d] text-white',
@@ -88,9 +122,15 @@
 			{@const tile = placed ?? draft}
 			{@const premium = PREMIUMS[row][col]}
 			{@const isCursor = game.cursor?.row === row && game.cursor?.col === col}
+			{@const lit = placed ? flashAt(row, col) : -1}
 			<button
 				type="button"
+				data-cell
+				data-row={row}
+				data-col={col}
 				onmousedown={(e) => e.preventDefault()}
+				onpointerdown={(e) => draft && drag?.start(e, draft.letter, draft.blank, { row, col })}
+				onclickcapture={(e) => drag?.consumeClick(e)}
 				onclick={() => tap(row, col)}
 				aria-label={`Row ${row + 1} column ${col + 1}${tile ? ` ${tile.letter}` : ''}`}
 				class={[
@@ -100,9 +140,13 @@
 						: premium
 							? [premiumStyle[premium], 'shadow-[inset_0_1px_2px_rgb(0_0_0/0.25)]']
 							: 'bg-felt shadow-[inset_0_1px_2px_rgb(0_0_0/0.3)]',
+					lit >= 0 && (placedAt(row, col) ? 'last-word-new' : 'last-word'),
+					draft && drag && 'touch-none',
+					drag?.isDragging({ row, col }) && 'opacity-30',
+					drag?.isOver(row, col) && !placed && 'z-20 outline-3 outline-amber-400',
 					isCursor && 'z-20 outline-3 outline-yellow-300'
 				]}
-				style="font-size: 4cqw"
+				style={`font-size: 4cqw${flash && lit >= 0 ? `; --glow: ${game.color(flash.player).bg}` : ''}`}
 			>
 				{#if tile}
 					<span class={tile.blank ? 'opacity-40' : ''}>{tile.letter}</span>
@@ -115,6 +159,13 @@
 					<Star class="fill-current" style="width: 3.6cqw; height: 3.6cqw" />
 				{:else if premium}
 					<span style="font-size: 1.9cqw">{premium}</span>
+				{/if}
+				{#if flash && lit === flash.cells.length - 1}
+					<span
+						class="pointer-events-none absolute -top-[45%] -right-[45%] z-30 last-score rounded-full px-[0.6cqw] leading-tight font-bold whitespace-nowrap text-white shadow"
+						style={`font-size: 3cqw; background: ${game.color(flash.player).bg}`}
+						aria-hidden="true">+{flash.total}</span
+					>
 				{/if}
 				{#if isCursor && !tile}
 					{@const Arrow = game.direction === 'across' ? ArrowRight : ArrowDown}

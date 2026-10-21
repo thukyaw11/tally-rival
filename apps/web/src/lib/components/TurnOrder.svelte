@@ -3,7 +3,8 @@
 	import Play from '@lucide/svelte/icons/play';
 	import Shuffle from '@lucide/svelte/icons/shuffle';
 	import { flip } from 'svelte/animate';
-	import { PLAYER_COLORS, initial, shuffle, type Seat } from '#lib/players.ts';
+	import Avatar from '#lib/components/Avatar.svelte';
+	import { PLAYER_COLORS, shuffle, type Seat } from '#lib/players.ts';
 
 	let {
 		seats,
@@ -88,10 +89,7 @@
 					{:else}
 						<span class="w-10 animate-pop text-lg font-bold opacity-80">{place[i]}</span>
 					{/if}
-					<span
-						class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold"
-						style={`background: ${color.edge}`}>{initial(seat.name)}</span
-					>
+					<Avatar name={seat.name} avatar={seat.avatar} bg={color.edge} />
 					<span class="min-w-0 flex-1 truncate text-lg font-medium">{seat.name}</span>
 					{#if i === 0 && !shuffling}
 						<span
