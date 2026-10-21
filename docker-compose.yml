@@ -1,0 +1,16 @@
+# Local Postgres for the online server: `docker compose up -d`.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: tally
+      POSTGRES_PASSWORD: tally
+      POSTGRES_DB: tally
+    ports:
+      - '5432:5432'
+    volumes:
+      - tally-db:/var/lib/postgresql/data
+      - ./apps/server/internal/db/test-db.sql:/docker-entrypoint-initdb.d/test-db.sql:ro
+
+volumes:
+  tally-db:

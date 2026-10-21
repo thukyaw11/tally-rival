@@ -1,0 +1,13 @@
+{
+	"name": "@tally/server",
+	"private": true,
+	"description": "Go server; these scripts only let the root bun scripts run it.",
+	"scripts": {
+		"dev": "go run ./cmd/server",
+		"build": "go build -o bin/server ./cmd/server",
+		"check": "go vet ./...",
+		"lint": "test -z \"$(gofmt -l .)\" || (gofmt -l . && exit 1)",
+		"format": "gofmt -w .",
+		"test": "go test ./..."
+	}
+}

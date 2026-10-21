@@ -1,0 +1,806 @@
+[
+	{
+		"name": "first word on the star",
+		"board": [],
+		"tiles": [
+			{
+				"row": 7,
+				"col": 6,
+				"letter": "C",
+				"blank": false
+			},
+			{
+				"row": 7,
+				"col": 7,
+				"letter": "A",
+				"blank": false
+			},
+			{
+				"row": 7,
+				"col": 8,
+				"letter": "T",
+				"blank": false
+			}
+		],
+		"error": null,
+		"score": {
+			"words": [
+				{
+					"text": "CAT",
+					"score": 10
+				}
+			],
+			"bingo": false,
+			"total": 10
+		}
+	},
+	{
+		"name": "first word off the star",
+		"board": [],
+		"tiles": [
+			{
+				"row": 0,
+				"col": 0,
+				"letter": "C",
+				"blank": false
+			},
+			{
+				"row": 0,
+				"col": 1,
+				"letter": "A",
+				"blank": false
+			},
+			{
+				"row": 0,
+				"col": 2,
+				"letter": "T",
+				"blank": false
+			}
+		],
+		"error": "First word must cover the center star.",
+		"score": null
+	},
+	{
+		"name": "first word of one letter",
+		"board": [],
+		"tiles": [
+			{
+				"row": 7,
+				"col": 7,
+				"letter": "A",
+				"blank": false
+			}
+		],
+		"error": "First word needs at least 2 letters.",
+		"score": null
+	},
+	{
+		"name": "first word with a blank",
+		"board": [],
+		"tiles": [
+			{
+				"row": 7,
+				"col": 6,
+				"letter": "C",
+				"blank": true
+			},
+			{
+				"row": 7,
+				"col": 7,
+				"letter": "A",
+				"blank": false
+			},
+			{
+				"row": 7,
+				"col": 8,
+				"letter": "T",
+				"blank": false
+			}
+		],
+		"error": null,
+		"score": {
+			"words": [
+				{
+					"text": "cAT",
+					"score": 4
+				}
+			],
+			"bingo": false,
+			"total": 4
+		}
+	},
+	{
+		"name": "seven-tile bingo",
+		"board": [],
+		"tiles": [
+			{
+				"row": 7,
+				"col": 1,
+				"letter": "R",
+				"blank": false
+			},
+			{
+				"row": 7,
+				"col": 2,
+				"letter": "E",
+				"blank": false
+			},
+			{
+				"row": 7,
+				"col": 3,
+				"letter": "T",
+				"blank": false
+			},
+			{
+				"row": 7,
+				"col": 4,
+				"letter": "A",
+				"blank": false
+			},
+			{
+				"row": 7,
+				"col": 5,
+				"letter": "I",
+				"blank": false
+			},
+			{
+				"row": 7,
+				"col": 6,
+				"letter": "N",
+				"blank": false
+			},
+			{
+				"row": 7,
+				"col": 7,
+				"letter": "S",
+				"blank": false
+			}
+		],
+		"error": null,
+		"score": {
+			"words": [
+				{
+					"text": "RETAINS",
+					"score": 16
+				}
+			],
+			"bingo": true,
+			"total": 66
+		}
+	},
+	{
+		"name": "down first word",
+		"board": [],
+		"tiles": [
+			{
+				"row": 5,
+				"col": 7,
+				"letter": "Z",
+				"blank": false
+			},
+			{
+				"row": 6,
+				"col": 7,
+				"letter": "O",
+				"blank": false
+			},
+			{
+				"row": 7,
+				"col": 7,
+				"letter": "O",
+				"blank": false
+			}
+		],
+		"error": null,
+		"score": {
+			"words": [
+				{
+					"text": "ZOO",
+					"score": 24
+				}
+			],
+			"bingo": false,
+			"total": 24
+		}
+	},
+	{
+		"name": "hook an S",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 6,
+					"letter": "C",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "T",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [
+			{
+				"row": 7,
+				"col": 9,
+				"letter": "S",
+				"blank": false
+			}
+		],
+		"error": null,
+		"score": {
+			"words": [
+				{
+					"text": "CATS",
+					"score": 6
+				}
+			],
+			"bingo": false,
+			"total": 6
+		}
+	},
+	{
+		"name": "cross through a tile",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 6,
+					"letter": "C",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "T",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [
+			{
+				"row": 6,
+				"col": 7,
+				"letter": "O",
+				"blank": false
+			},
+			{
+				"row": 8,
+				"col": 7,
+				"letter": "X",
+				"blank": false
+			}
+		],
+		"error": null,
+		"score": {
+			"words": [
+				{
+					"text": "OAX",
+					"score": 10
+				}
+			],
+			"bingo": false,
+			"total": 10
+		}
+	},
+	{
+		"name": "parallel play",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 6,
+					"letter": "C",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "T",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [
+			{
+				"row": 8,
+				"col": 7,
+				"letter": "A",
+				"blank": false
+			},
+			{
+				"row": 8,
+				"col": 8,
+				"letter": "N",
+				"blank": false
+			}
+		],
+		"error": null,
+		"score": {
+			"words": [
+				{
+					"text": "AN",
+					"score": 3
+				},
+				{
+					"text": "AA",
+					"score": 2
+				},
+				{
+					"text": "TN",
+					"score": 3
+				}
+			],
+			"bingo": false,
+			"total": 8
+		}
+	},
+	{
+		"name": "single tile both ways",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 6,
+					"letter": "C",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "T",
+					"blank": false
+				}
+			],
+			[
+				{
+					"row": 6,
+					"col": 7,
+					"letter": "O",
+					"blank": false
+				},
+				{
+					"row": 8,
+					"col": 7,
+					"letter": "X",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [
+			{
+				"row": 8,
+				"col": 6,
+				"letter": "E",
+				"blank": false
+			}
+		],
+		"error": null,
+		"score": {
+			"words": [
+				{
+					"text": "EX",
+					"score": 10
+				},
+				{
+					"text": "CE",
+					"score": 5
+				}
+			],
+			"bingo": false,
+			"total": 15
+		}
+	},
+	{
+		"name": "triple word hook",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "Q",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "U",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 9,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 10,
+					"letter": "R",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 11,
+					"letter": "T",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 12,
+					"letter": "E",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 13,
+					"letter": "R",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [
+			{
+				"row": 7,
+				"col": 14,
+				"letter": "S",
+				"blank": false
+			}
+		],
+		"error": null,
+		"score": {
+			"words": [
+				{
+					"text": "QUARTERS",
+					"score": 51
+				}
+			],
+			"bingo": false,
+			"total": 51
+		}
+	},
+	{
+		"name": "double letters",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 6,
+					"letter": "C",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "T",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [
+			{
+				"row": 6,
+				"col": 6,
+				"letter": "J",
+				"blank": false
+			},
+			{
+				"row": 8,
+				"col": 6,
+				"letter": "B",
+				"blank": false
+			}
+		],
+		"error": null,
+		"score": {
+			"words": [
+				{
+					"text": "JCB",
+					"score": 25
+				}
+			],
+			"bingo": false,
+			"total": 25
+		}
+	},
+	{
+		"name": "gap",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 6,
+					"letter": "C",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "T",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [
+			{
+				"row": 8,
+				"col": 6,
+				"letter": "A",
+				"blank": false
+			},
+			{
+				"row": 8,
+				"col": 9,
+				"letter": "E",
+				"blank": false
+			}
+		],
+		"error": "Word has a gap.",
+		"score": null
+	},
+	{
+		"name": "not touching",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 6,
+					"letter": "C",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "T",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [
+			{
+				"row": 0,
+				"col": 0,
+				"letter": "D",
+				"blank": false
+			},
+			{
+				"row": 0,
+				"col": 1,
+				"letter": "O",
+				"blank": false
+			},
+			{
+				"row": 0,
+				"col": 2,
+				"letter": "G",
+				"blank": false
+			}
+		],
+		"error": "Word must connect to tiles already on the board.",
+		"score": null
+	},
+	{
+		"name": "square taken",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 6,
+					"letter": "C",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "T",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [
+			{
+				"row": 7,
+				"col": 7,
+				"letter": "A",
+				"blank": false
+			}
+		],
+		"error": "A tile is already on that square.",
+		"score": null
+	},
+	{
+		"name": "same square twice",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 6,
+					"letter": "C",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "T",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [
+			{
+				"row": 8,
+				"col": 7,
+				"letter": "A",
+				"blank": false
+			},
+			{
+				"row": 8,
+				"col": 7,
+				"letter": "B",
+				"blank": false
+			}
+		],
+		"error": "Two tiles on the same square.",
+		"score": null
+	},
+	{
+		"name": "not in a line",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 6,
+					"letter": "C",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "T",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [
+			{
+				"row": 8,
+				"col": 6,
+				"letter": "A",
+				"blank": false
+			},
+			{
+				"row": 9,
+				"col": 7,
+				"letter": "B",
+				"blank": false
+			}
+		],
+		"error": "Tiles must be in one row or one column.",
+		"score": null
+	},
+	{
+		"name": "off the board",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 6,
+					"letter": "C",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "T",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [
+			{
+				"row": 15,
+				"col": 7,
+				"letter": "A",
+				"blank": false
+			}
+		],
+		"error": "Tile is off the board.",
+		"score": null
+	},
+	{
+		"name": "no tiles",
+		"board": [
+			[
+				{
+					"row": 7,
+					"col": 6,
+					"letter": "C",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 7,
+					"letter": "A",
+					"blank": false
+				},
+				{
+					"row": 7,
+					"col": 8,
+					"letter": "T",
+					"blank": false
+				}
+			]
+		],
+		"tiles": [],
+		"error": "Place at least one tile.",
+		"score": null
+	}
+]
