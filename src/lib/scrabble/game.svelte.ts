@@ -22,6 +22,8 @@ export class Game {
 	// Players in turn order.
 	players = $state<string[]>([]);
 	colors = $state<number[]>([]);
+	// Minutes per turn, or null for no timer.
+	turnMinutes = $state<number | null>(null);
 	moves = $state<Move[]>([]);
 	end = $state<EndState | null>(null);
 
@@ -41,6 +43,7 @@ export class Game {
 		if (saved) {
 			this.players = saved.players;
 			this.colors = saved.colors ?? saved.players.map((_, i) => i);
+			this.turnMinutes = saved.turnMinutes ?? null;
 			this.moves = saved.moves;
 			this.end = saved.end;
 		}
@@ -109,9 +112,10 @@ export class Game {
 	}
 
 	// Names must already be in turn order; colors default to seat order.
-	start(names: string[], colors = names.map((_, i) => i)) {
+	start(names: string[], colors = names.map((_, i) => i), turnMinutes: number | null = null) {
 		this.players = names;
 		this.colors = colors;
+		this.turnMinutes = turnMinutes;
 		this.moves = [];
 		this.end = null;
 		this.resetDraft();
@@ -121,6 +125,7 @@ export class Game {
 	newGame() {
 		this.players = [];
 		this.colors = [];
+		this.turnMinutes = null;
 		this.moves = [];
 		this.end = null;
 		this.resetDraft();
@@ -240,6 +245,7 @@ export class Game {
 			version: 1,
 			players: $state.snapshot(this.players),
 			colors: $state.snapshot(this.colors),
+			turnMinutes: this.turnMinutes,
 			moves: $state.snapshot(this.moves),
 			end: $state.snapshot(this.end)
 		};

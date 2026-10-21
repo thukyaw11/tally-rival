@@ -2,7 +2,14 @@
 	import { initial } from '#lib/players.ts';
 	import type { Game } from '#lib/scrabble/game.svelte.ts';
 
-	let { game }: { game: Game } = $props();
+	// timeLeft: seconds left in the current turn, or null with no timer.
+	let { game, timeLeft = null }: { game: Game; timeLeft?: number | null } = $props();
+
+	const R = 20;
+	const RING = 2 * Math.PI * R;
+	const limit = $derived((game.turnMinutes ?? 0) * 60);
+	const low = $derived(timeLeft !== null && timeLeft <= 10);
+	const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 </script>
 
 <div class="flex flex-col gap-4">
@@ -17,10 +24,29 @@
 				]}
 				style={active ? `background: ${color.bg}; box-shadow: 0 4px 0 ${color.edge}` : undefined}
 			>
-				<span
-					class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-					style={`background: ${active ? color.edge : color.bg}`}>{initial(name)}</span
-				>
+				<span class="relative flex h-8 w-8 shrink-0 items-center justify-center">
+					{#if active && timeLeft !== null && limit}
+						<svg viewBox="0 0 44 44" class="absolute -inset-1.5 -rotate-90" aria-hidden="true">
+							<circle cx="22" cy="22" r={R} fill="none" stroke-width="4" class="stroke-white/30" />
+							<circle
+								cx="22"
+								cy="22"
+								r={R}
+								fill="none"
+								stroke-width="4"
+								stroke-linecap="round"
+								class={low ? 'stroke-rose-500' : 'stroke-yellow-300'}
+								stroke-dasharray={RING}
+								stroke-dashoffset={RING * (1 - timeLeft / limit)}
+								style="transition: stroke-dashoffset 300ms linear"
+							/>
+						</svg>
+					{/if}
+					<span
+						class="flex h-full w-full items-center justify-center rounded-full text-sm font-bold text-white"
+						style={`background: ${active ? color.edge : color.bg}`}>{initial(name)}</span
+					>
+				</span>
 				<span class="min-w-0 flex-1 truncate font-medium">{name}</span>
 				{#key game.scores[i]}
 					<span class="animate-pop text-2xl font-bold tabular-nums">{game.scores[i]}</span>
@@ -28,7 +54,10 @@
 				{#if active}
 					<span
 						class="absolute -top-2 left-3 rounded-full bg-yellow-300 px-2 text-[10px] font-bold tracking-wide text-yellow-900 uppercase"
-						>Your turn</span
+						>Your turn{#if timeLeft !== null}
+							&nbsp;· <span class={['tabular-nums', low && 'animate-pulse text-rose-700']}
+								>{clock(timeLeft)}</span
+							>{/if}</span
 					>
 				{/if}
 			</li>

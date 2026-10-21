@@ -9,17 +9,22 @@
 	import Scoreboard from '#lib/components/Scoreboard.svelte';
 	import Setup from '#lib/components/Setup.svelte';
 	import TurnOrder from '#lib/components/TurnOrder.svelte';
+	import TurnTimer from '#lib/components/TurnTimer.svelte';
 	import { reshuffle, shuffle, type Seat } from '#lib/players.ts';
 	import { Game } from '#lib/scrabble/game.svelte.ts';
 
 	const game = new Game();
 	let endGameOpen = $state(false);
+	let timeUp = $state(false);
+	let timeLeft = $state(0);
 	// Players from setup, shuffled into turn order, waiting for "Start game".
 	let seats = $state<Seat[] | null>(null);
 	let setupNames = $state(['', '']);
+	let setupMinutes = $state<number | null>(null);
 
-	function onsetup(names: string[]) {
+	function onsetup(names: string[], turnMinutes: number | null) {
 		setupNames = names;
+		setupMinutes = turnMinutes;
 		seats = shuffle(names.map((name, color) => ({ name, color })));
 	}
 
@@ -27,7 +32,8 @@
 		if (!seats) return;
 		game.start(
 			seats.map((s) => s.name),
-			seats.map((s) => s.color)
+			seats.map((s) => s.color),
+			setupMinutes
 		);
 		seats = null;
 	}
@@ -35,7 +41,7 @@
 	function onkeydown(e: KeyboardEvent) {
 		if (!game.started || game.ended || e.metaKey || e.ctrlKey || e.altKey) return;
 		if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
-		if (endGameOpen) return;
+		if (endGameOpen || timeUp) return;
 		if (/^[a-zA-Z]$/.test(e.key)) {
 			game.placeLetter(e.key);
 		} else if (e.key === 'Backspace') {
@@ -79,7 +85,7 @@
 					onback={() => (seats = null)}
 				/>
 			{:else}
-				<Setup onstart={onsetup} initialNames={setupNames} />
+				<Setup onstart={onsetup} initialNames={setupNames} initialMinutes={setupMinutes} />
 			{/if}
 		</div>
 	{:else}
@@ -88,8 +94,11 @@
 				<Board {game} />
 			</div>
 			<div class="flex w-full flex-col gap-4 lg:w-96">
-				<Scoreboard {game} />
+				<Scoreboard {game} timeLeft={game.turnMinutes ? timeLeft : null} />
 				{#if !game.ended}
+					{#if game.turnMinutes}
+						<TurnTimer {game} bind:timeUp ontick={(s) => (timeLeft = s)} />
+					{/if}
 					<ActionBar {game} />
 				{/if}
 				<EndGame {game} bind:open={endGameOpen} />

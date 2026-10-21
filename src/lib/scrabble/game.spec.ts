@@ -20,6 +20,16 @@ describe('Game', () => {
 		expect(game.scores).toEqual([10, 10]);
 	});
 
+	it('keeps the turn timer setting until a new game', () => {
+		const game = new Game(false);
+		game.start(['Ann', 'Bo']);
+		expect(game.turnMinutes).toBeNull();
+		game.start(['Ann', 'Bo'], undefined, 2);
+		expect(game.turnMinutes).toBe(2);
+		game.newGame();
+		expect(game.turnMinutes).toBeNull();
+	});
+
 	it('rejects a bad move and keeps the turn', () => {
 		const game = new Game(false);
 		game.start(['Ann', 'Bo']);

@@ -4,10 +4,12 @@ export type Move = { player: number; kind: 'play' | 'pass' | 'swap'; tiles: Plac
 // breakTie: on equal final scores, the higher score before leftover tiles wins.
 export type EndState = { wentOut: number | null; leftovers: string[]; breakTie?: boolean };
 // colors: index into PLAYER_COLORS per player (missing in older saves = seat order).
+// turnMinutes: time limit per turn, null or missing = no timer.
 export type SaveData = {
 	version: 1;
 	players: string[];
 	colors?: number[];
+	turnMinutes?: number | null;
 	moves: Move[];
 	end: EndState | null;
 };
