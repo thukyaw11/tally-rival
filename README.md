@@ -19,7 +19,6 @@ Scrabble for 2–4 players on a full 15×15 board. Use it as a score tracker at 
 | Server       | Go 1.24, Postgres                                                        |
 | Realtime     | Pusher (falls back to polling)                                           |
 | Shared rules | `@tally/game` (TypeScript), ported to Go and tested on the same fixtures |
-| Hosting      | Vercel (web), Railway (server)                                           |
 | Tooling      | Bun workspaces, Vitest, Playwright, Prettier, ESLint                     |
 
 ## Repo layout
