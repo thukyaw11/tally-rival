@@ -2,6 +2,8 @@
 
 Scrabble for 2–4 players on a full 15×15 board. Use it as a score tracker at the table, or play with friends online.
 
+![Tally: a finished online game](demos/demo.png)
+
 ## Features
 
 - **Score tracker** — runs in the browser, no account. Place words on the board and it scores them (premium squares, cross words, blanks, +50 bingo). Undo, history and end-of-game leftovers included. Works offline as a PWA.
