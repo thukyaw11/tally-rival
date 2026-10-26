@@ -49,6 +49,7 @@ export class OnlineRoom {
 		g.colors = v.players.map((p) => p.color);
 		g.avatars = v.players.map((p) => p.avatar);
 		g.turnMinutes = v.turnMinutes;
+		g.useWordList(v.wordList);
 		g.rack = v.rack;
 		g.end = v.end && { ...v.end, breakTie: false };
 		if (changed) {

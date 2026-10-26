@@ -12,7 +12,8 @@ import {
 	withTiles,
 	type Board,
 	type MoveScore,
-	type PlacedTile
+	type PlacedTile,
+	type WordList
 } from '@tally/game';
 import * as storage from './storage';
 import { isWord, loadWords } from './words';
@@ -54,6 +55,7 @@ export class Game {
 	avatars = $state<(number | null)[]>([]);
 	// Minutes per turn, or null for no timer.
 	turnMinutes = $state<number | null>(null);
+	wordList = $state<WordList>('common');
 	moves = $state<Move[]>([]);
 	end = $state<EndState | null>(null);
 
@@ -77,9 +79,11 @@ export class Game {
 	rejects = $state(0);
 
 	private persist: boolean;
+	private checkWords: boolean;
 
 	constructor(persist = true, checkWords = persist) {
 		this.persist = persist;
+		this.checkWords = checkWords;
 		const saved = persist ? storage.load() : null;
 		if (saved) {
 			this.players = saved.players;
@@ -89,7 +93,18 @@ export class Game {
 			this.moves = saved.moves;
 			this.end = saved.end;
 		}
-		if (checkWords) loadWords().then((w) => (this.words = w));
+		this.useWordList(saved ? (saved.wordList ?? 'tournament') : 'common');
+	}
+
+	// Switches the list moves are checked against and loads it.
+	useWordList(list: WordList) {
+		if (list === this.wordList && this.words) return;
+		this.wordList = list;
+		this.words = null;
+		if (!this.checkWords) return;
+		loadWords(list).then((w) => {
+			if (this.wordList === list) this.words = w;
+		});
 	}
 
 	// Replays every move to rebuild the board and each turn's score.
@@ -181,12 +196,14 @@ export class Game {
 		names: string[],
 		colors = names.map((_, i) => i),
 		turnMinutes: number | null = null,
-		avatars: (number | null)[] = []
+		avatars: (number | null)[] = [],
+		wordList: WordList = 'common'
 	) {
 		this.players = names;
 		this.colors = colors;
 		this.avatars = avatars;
 		this.turnMinutes = turnMinutes;
+		this.useWordList(wordList);
 		this.moves = [];
 		this.end = null;
 		this.resetDraft();
@@ -395,6 +412,7 @@ export class Game {
 			colors: $state.snapshot(this.colors),
 			avatars: $state.snapshot(this.avatars),
 			turnMinutes: this.turnMinutes,
+			wordList: this.wordList,
 			moves: $state.snapshot(this.moves),
 			end: $state.snapshot(this.end)
 		};

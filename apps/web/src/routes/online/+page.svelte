@@ -6,7 +6,9 @@
 	import { resolve } from '$app/paths';
 	import Logo from '#lib/components/Logo.svelte';
 	import TimerOption, { turnMinutes } from '#lib/components/TimerOption.svelte';
+	import WordListOption from '#lib/components/WordListOption.svelte';
 	import YouCard from '#lib/components/YouCard.svelte';
+	import type { WordList } from '@tally/game';
 	import { api } from '#lib/online/api.ts';
 	import {
 		loadAvatar,
@@ -22,6 +24,7 @@
 	let code = $state('');
 	let useTimer = $state(false);
 	let minutes = $state(2);
+	let wordList = $state<WordList>('common');
 	let busy = $state(false);
 	let error = $state<string | null>(null);
 
@@ -44,7 +47,7 @@
 
 	const create = (e: SubmitEvent) => {
 		e.preventDefault();
-		enter(() => api.create(name.trim(), turnMinutes(useTimer, minutes), avatar));
+		enter(() => api.create(name.trim(), turnMinutes(useTimer, minutes), wordList, avatar));
 	};
 	const join = (e: SubmitEvent) => {
 		e.preventDefault();
@@ -67,6 +70,7 @@
 			<form onsubmit={create} class="flex flex-col gap-3 panel p-4">
 				<h2 class="text-lg font-bold">Start a new room</h2>
 				<TimerOption bind:enabled={useTimer} bind:minutes />
+				<WordListOption bind:value={wordList} />
 				<button type="submit" class="btn-3d h-12 text-lg btn-green" disabled={busy}
 					><Plus size={20} /> Create room</button
 				>

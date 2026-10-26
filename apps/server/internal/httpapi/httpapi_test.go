@@ -276,6 +276,34 @@ func TestRoomLimits(t *testing.T) {
 	}
 }
 
+func TestWordLists(t *testing.T) {
+	e := setup(t)
+	if s := e.call("POST", "/rooms", "", map[string]any{"name": "X", "wordList": "klingon"}, nil); s != 400 {
+		t.Fatalf("unknown word list: %d", s)
+	}
+	// QI is only a tournament word; rooms without a choice use everyday words.
+	for list, want := range map[string]int{"": 400, "common": 400, "tournament": 200} {
+		var j rooms.Joined
+		if s := e.call("POST", "/rooms", "", map[string]any{"name": "Ann", "wordList": list}, &j); s != 201 {
+			t.Fatalf("create %q: %d", list, s)
+		}
+		players := []rooms.Joined{j, e.join(j.Code, "Bo")}
+		var v rooms.View
+		if s := e.call("POST", "/rooms/"+j.Code+"/start", j.Token, nil, &v); s != 200 {
+			t.Fatalf("start: %d", s)
+		}
+		if got := cmp.Or(list, "common"); v.WordList != got {
+			t.Fatalf("word list %q came back as %q", got, v.WordList)
+		}
+		first := current(v, players)
+		e.setRack(first, "QIABCDE")
+		play := map[string]any{"kind": "play", "tiles": tilesFrom([]string{"Q", "I"}, 7, 7)}
+		if s := e.call("POST", "/rooms/"+j.Code+"/move", first.Token, play, nil); s != want {
+			t.Fatalf("QI in %q room: %d, want %d", list, s, want)
+		}
+	}
+}
+
 func TestSixScorelessTurnsEndTheGame(t *testing.T) {
 	e := setup(t)
 	ann := e.create("Ann", nil)

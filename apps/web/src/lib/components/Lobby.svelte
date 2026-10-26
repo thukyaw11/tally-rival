@@ -1,10 +1,12 @@
 <script lang="ts">
 	import Crown from '@lucide/svelte/icons/crown';
 	import Share2 from '@lucide/svelte/icons/share-2';
+	import BookOpen from '@lucide/svelte/icons/book-open';
 	import Timer from '@lucide/svelte/icons/timer';
 	import { MAX_PLAYERS } from '@tally/game';
 	import { resolve } from '$app/paths';
 	import { formatMinutes } from '#lib/components/TimerOption.svelte';
+	import { wordListName } from '#lib/components/WordListOption.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import { PLAYER_COLORS } from '#lib/players.ts';
 	import type { OnlineRoom } from '#lib/online/room.svelte.ts';
@@ -50,6 +52,10 @@
 				{formatMinutes(view.turnMinutes)} per turn
 			</p>
 		{/if}
+		<p class="flex items-center gap-1 text-sm opacity-70">
+			<BookOpen size={14} />
+			{wordListName(view.wordList)}
+		</p>
 	</div>
 
 	<div class="flex flex-col gap-2 panel p-4">

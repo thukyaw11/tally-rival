@@ -51,3 +51,6 @@ END $$;
 
 -- Emoji avatar: an index into AVATARS (packages/game/src/avatars.ts); null = show the initial.
 ALTER TABLE players ADD COLUMN IF NOT EXISTS avatar int;
+
+-- Word list moves are checked against: 'common' or 'tournament' (rooms made before the choice).
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS word_list text NOT NULL DEFAULT 'tournament';

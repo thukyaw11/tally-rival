@@ -86,13 +86,14 @@ func New(svc *rooms.Service, corsOrigin string) http.Handler {
 		var b struct {
 			Name        string   `json:"name"`
 			TurnMinutes *float64 `json:"turnMinutes"`
+			WordList    string   `json:"wordList"`
 			Avatar      *int     `json:"avatar"`
 		}
 		if err := readJSON(r, &b); err != nil {
 			sendErr(w, err)
 			return
 		}
-		j, err := svc.Create(r.Context(), b.Name, b.TurnMinutes, b.Avatar)
+		j, err := svc.Create(r.Context(), b.Name, b.TurnMinutes, b.WordList, b.Avatar)
 		if err != nil {
 			sendErr(w, err)
 			return

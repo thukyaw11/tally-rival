@@ -133,33 +133,45 @@ func TestSwap(t *testing.T) {
 }
 
 func TestWordListMatchesWeb(t *testing.T) {
-	web, err := os.ReadFile("../../../web/static/words/words.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(web) != wordList {
-		t.Fatal("internal/game/words.txt differs from apps/web/static/words/words.txt; copy it over")
+	for file, list := range map[string]string{"words.txt": wordList, "common.txt": commonList} {
+		web, err := os.ReadFile("../../../web/static/words/" + file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(web) != list {
+			t.Fatalf("internal/game/%s differs from apps/web/static/words/%[1]s; copy it over", file)
+		}
 	}
 }
 
 func TestWords(t *testing.T) {
-	for _, w := range []string{"CAT", "cat", "QI", "ZA", "cAT"} {
-		if !IsWord(w) {
-			t.Errorf("%s should be a word", w)
+	for _, list := range []string{CommonWords, TournamentWords} {
+		for _, w := range []string{"CAT", "cat", "ZOO", "cAT"} {
+			if !IsWord(list, w) {
+				t.Errorf("%s should be a %s word", w, list)
+			}
+		}
+		for _, w := range []string{"CXT", "NR", ""} {
+			if IsWord(list, w) {
+				t.Errorf("%q should not be a %s word", w, list)
+			}
 		}
 	}
-	for _, w := range []string{"CXT", "NR", ""} {
-		if IsWord(w) {
-			t.Errorf("%q should not be a word", w)
+	for _, w := range []string{"QI", "ZA", "IDE", "ID", "AD"} {
+		if !IsWord(TournamentWords, w) {
+			t.Errorf("%s should be a tournament word", w)
+		}
+		if IsWord(CommonWords, w) {
+			t.Errorf("%s should not be an everyday word", w)
 		}
 	}
 	var board Board
 	board = board.WithTiles([]PlacedTile{{Row: 7, Col: 6, Letter: "C"}, {Row: 7, Col: 7, Letter: "A"}, {Row: 7, Col: 8, Letter: "T"}})
 	// "OAX" down through the A is not a word; "CATS" is.
-	if bad := InvalidWords(ScoreMove(board, []PlacedTile{{Row: 6, Col: 7, Letter: "O"}, {Row: 8, Col: 7, Letter: "X"}})); len(bad) != 1 || bad[0] != "OAX" {
+	if bad := InvalidWords(TournamentWords, ScoreMove(board, []PlacedTile{{Row: 6, Col: 7, Letter: "O"}, {Row: 8, Col: 7, Letter: "X"}})); len(bad) != 1 || bad[0] != "OAX" {
 		t.Errorf("bad words: %v", bad)
 	}
-	if bad := InvalidWords(ScoreMove(board, []PlacedTile{{Row: 7, Col: 9, Letter: "S"}})); len(bad) != 0 {
+	if bad := InvalidWords(TournamentWords, ScoreMove(board, []PlacedTile{{Row: 7, Col: 9, Letter: "S"}})); len(bad) != 0 {
 		t.Errorf("CATS flagged: %v", bad)
 	}
 }

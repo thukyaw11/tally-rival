@@ -19,12 +19,16 @@ export type OnlineMove = { player: number; kind: MoveKind; tiles: PlacedTile[]; 
 // endedBy: the host's player id when they ended the game early.
 export type OnlineEnd = { wentOut: number | null; leftovers: string[]; endedBy?: string };
 
+// Which words count: everyday words, or the full tournament list (allows QI, ZA …).
+export type WordList = 'common' | 'tournament';
+
 // What everyone in the room may see. players are in seat order once the game starts.
 export type RoomState = {
 	code: string;
 	status: RoomStatus;
 	hostId: string;
 	turnMinutes: number | null;
+	wordList: WordList;
 	players: OnlinePlayer[];
 	moves: OnlineMove[];
 	bagCount: number;

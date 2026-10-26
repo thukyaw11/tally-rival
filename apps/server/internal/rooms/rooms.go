@@ -67,6 +67,7 @@ type State struct {
 	Status        string     `json:"status"`
 	HostID        string     `json:"hostId"`
 	TurnMinutes   *float64   `json:"turnMinutes"`
+	WordList      string     `json:"wordList"`
 	Players       []Player   `json:"players"`
 	Moves         []Move     `json:"moves"`
 	BagCount      int        `json:"bagCount"`
@@ -162,13 +163,13 @@ func cleanMinutes(m *float64) error {
 }
 
 func load(ctx context.Context, q querier, code string, lock bool) (*loaded, error) {
-	sql := `SELECT status, coalesce(host_id::text, ''), turn_minutes, bag, turn_started_at, "end"
+	sql := `SELECT status, coalesce(host_id::text, ''), turn_minutes, word_list, bag, turn_started_at, "end"
 		FROM rooms WHERE code = $1`
 	if lock {
 		sql += " FOR UPDATE"
 	}
 	l := &loaded{State: State{Code: code}}
-	err := q.QueryRow(ctx, sql, code).Scan(&l.Status, &l.HostID, &l.TurnMinutes, &l.bag, &l.TurnStartedAt, &l.End)
+	err := q.QueryRow(ctx, sql, code).Scan(&l.Status, &l.HostID, &l.TurnMinutes, &l.WordList, &l.bag, &l.TurnStartedAt, &l.End)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, fail(404, "Room not found")
 	}
@@ -318,7 +319,7 @@ func (s *Service) applyMove(ctx context.Context, code, playerID string, timerSeq
 			}
 			tiles = req.Tiles
 			scored := game.ScoreMove(board, tiles)
-			if bad := game.InvalidWords(scored); len(bad) > 0 {
+			if bad := game.InvalidWords(l.WordList, scored); len(bad) > 0 {
 				return fail(400, "Not in the word list: "+strings.Join(bad, ", "))
 			}
 			score = scored.Total
@@ -386,7 +387,8 @@ func cleanAvatar(a *int) error {
 	return nil
 }
 
-func (s *Service) Create(ctx context.Context, name string, turnMinutes *float64, avatar *int) (*Joined, error) {
+// Create starts a room; an empty wordList means everyday words.
+func (s *Service) Create(ctx context.Context, name string, turnMinutes *float64, wordList string, avatar *int) (*Joined, error) {
 	n, err := cleanName(name)
 	if err != nil {
 		return nil, err
@@ -396,6 +398,12 @@ func (s *Service) Create(ctx context.Context, name string, turnMinutes *float64,
 	}
 	if err := cleanMinutes(turnMinutes); err != nil {
 		return nil, err
+	}
+	if wordList == "" {
+		wordList = game.CommonWords
+	}
+	if !game.ValidWordList(wordList) {
+		return nil, fail(400, "Unknown word list")
 	}
 	var code string
 	for {
@@ -414,7 +422,7 @@ func (s *Service) Create(ctx context.Context, name string, turnMinutes *float64,
 	}
 	j := &Joined{Code: code, Token: newToken()}
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `INSERT INTO rooms (code, turn_minutes) VALUES ($1, $2)`, code, turnMinutes); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO rooms (code, turn_minutes, word_list) VALUES ($1, $2, $3)`, code, turnMinutes, wordList); err != nil {
 			return err
 		}
 		if err := tx.QueryRow(ctx, `INSERT INTO players (room_code, name, color, avatar, token_hash)

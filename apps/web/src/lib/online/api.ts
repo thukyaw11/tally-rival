@@ -1,5 +1,5 @@
 import { API_URL } from '$app/env/public';
-import type { ChatMessage, MoveRequest, PlayerView } from '@tally/game';
+import type { ChatMessage, MoveRequest, PlayerView, WordList } from '@tally/game';
 import type { Session } from './session.ts';
 
 export class ApiError extends Error {
@@ -36,8 +36,8 @@ async function request<T>(
 }
 
 export const api = {
-	create: (name: string, turnMinutes: number | null, avatar: number) =>
-		request<Session>('POST', '/rooms', undefined, { name, turnMinutes, avatar }),
+	create: (name: string, turnMinutes: number | null, wordList: WordList, avatar: number) =>
+		request<Session>('POST', '/rooms', undefined, { name, turnMinutes, wordList, avatar }),
 	join: (code: string, name: string, avatar: number) =>
 		request<Session>('POST', `/rooms/${code}/join`, undefined, { name, avatar }),
 	view: (s: Session) => request<PlayerView>('GET', `/rooms/${s.code}`, s.token),

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { arrangeRack, Game } from './game.svelte';
 
 function play(game: Game, row: number, col: number, letters: string, down = false) {
@@ -28,6 +28,41 @@ describe('Game', () => {
 		expect(game.turnMinutes).toBe(2);
 		game.newGame();
 		expect(game.turnMinutes).toBeNull();
+	});
+
+	it('keeps the word list, and old saves use the tournament one', () => {
+		const store = new Map<string, string>();
+		vi.stubGlobal('localStorage', {
+			getItem: (k: string) => store.get(k) ?? null,
+			setItem: (k: string, v: string) => store.set(k, v),
+			removeItem: (k: string) => store.delete(k)
+		});
+		try {
+			const game = new Game(true, false);
+			expect(game.wordList).toBe('common');
+			game.start(['Ann', 'Bo'], undefined, null, [], 'tournament');
+			expect(new Game(true, false).wordList).toBe('tournament');
+			game.start(['Ann', 'Bo']);
+			expect(new Game(true, false).wordList).toBe('common');
+			store.set(
+				'tally:game',
+				JSON.stringify({ version: 1, players: ['Ann'], moves: [], end: null })
+			);
+			expect(new Game(true, false).wordList).toBe('tournament');
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
+	it('clears the loaded words when the list changes', () => {
+		const game = new Game(false);
+		game.start(['Ann', 'Bo']);
+		game.words = new Set(['CAT']);
+		game.useWordList('common');
+		expect(game.words).not.toBeNull();
+		game.useWordList('tournament');
+		expect(game.wordList).toBe('tournament');
+		expect(game.words).toBeNull();
 	});
 
 	it("keeps each player's avatar", () => {

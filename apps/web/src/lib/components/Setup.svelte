@@ -1,22 +1,30 @@
 <script lang="ts">
 	import Plus from '@lucide/svelte/icons/plus';
 	import X from '@lucide/svelte/icons/x';
-	import { randomAvatar } from '@tally/game';
+	import { randomAvatar, type WordList } from '@tally/game';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import AvatarPicker from '#lib/components/AvatarPicker.svelte';
 	import TimerOption, { turnMinutes } from '#lib/components/TimerOption.svelte';
+	import WordListOption from '#lib/components/WordListOption.svelte';
 	import { PLAYER_COLORS } from '#lib/players.ts';
 
 	let {
 		onstart,
 		initialNames = ['', ''],
 		initialMinutes = null,
-		initialAvatars = []
+		initialAvatars = [],
+		initialWordList = 'common'
 	}: {
-		onstart: (names: string[], turnMinutes: number | null, avatars: number[]) => void;
+		onstart: (
+			names: string[],
+			turnMinutes: number | null,
+			avatars: number[],
+			wordList: WordList
+		) => void;
 		initialNames?: string[];
 		initialMinutes?: number | null;
 		initialAvatars?: number[];
+		initialWordList?: WordList;
 	} = $props();
 
 	// svelte-ignore state_referenced_locally
@@ -51,13 +59,16 @@
 	let useTimer = $state(initialMinutes !== null);
 	// svelte-ignore state_referenced_locally
 	let minutes = $state(initialMinutes ?? 2);
+	// svelte-ignore state_referenced_locally
+	let wordList = $state(initialWordList);
 
 	function submit(e: SubmitEvent) {
 		e.preventDefault();
 		onstart(
 			names.map((n, i) => n.trim() || `Player ${i + 1}`),
 			turnMinutes(useTimer, minutes),
-			$state.snapshot(avatars)
+			$state.snapshot(avatars),
+			wordList
 		);
 	}
 </script>
@@ -104,6 +115,7 @@
 		>
 	{/if}
 	<TimerOption bind:enabled={useTimer} bind:minutes />
+	<WordListOption bind:value={wordList} />
 	<button type="submit" class="mt-2 btn-3d h-12 text-lg btn-green">Play!</button>
 </form>
 

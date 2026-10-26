@@ -16,6 +16,7 @@
 	import TurnTimer from '#lib/components/TurnTimer.svelte';
 	import { reshuffle, shuffle, type Seat } from '#lib/players.ts';
 	import { Game } from '#lib/scrabble/game.svelte.ts';
+	import type { WordList } from '@tally/game';
 
 	const game = new Game();
 	let endGameOpen = $state(false);
@@ -25,13 +26,20 @@
 	let seats = $state<Seat[] | null>(null);
 	let setupNames = $state(['', '']);
 	let setupMinutes = $state<number | null>(null);
+	let setupWordList = $state<WordList>('common');
 
 	let setupAvatars = $state<number[]>([]);
 
-	function onsetup(names: string[], turnMinutes: number | null, avatars: number[]) {
+	function onsetup(
+		names: string[],
+		turnMinutes: number | null,
+		avatars: number[],
+		wordList: WordList
+	) {
 		setupNames = names;
 		setupAvatars = avatars;
 		setupMinutes = turnMinutes;
+		setupWordList = wordList;
 		seats = shuffle(names.map((name, color) => ({ name, color, avatar: avatars[color] })));
 	}
 
@@ -41,7 +49,8 @@
 			seats.map((s) => s.name),
 			seats.map((s) => s.color),
 			setupMinutes,
-			seats.map((s) => s.avatar)
+			seats.map((s) => s.avatar),
+			setupWordList
 		);
 		seats = null;
 	}
@@ -90,6 +99,7 @@
 					onstart={onsetup}
 					initialNames={setupNames}
 					initialMinutes={setupMinutes}
+					initialWordList={setupWordList}
 					initialAvatars={setupAvatars}
 				/>
 			{/if}

@@ -1,4 +1,4 @@
-import type { PlacedTile } from '@tally/game';
+import type { PlacedTile, WordList } from '@tally/game';
 
 export type Move = { player: number; kind: 'play' | 'pass' | 'swap'; tiles: PlacedTile[] };
 // breakTie: on equal final scores, the higher score before leftover tiles wins.
@@ -12,6 +12,8 @@ export type SaveData = {
 	// Index into AVATARS per player (missing in older saves = initials).
 	avatars?: (number | null)[];
 	turnMinutes?: number | null;
+	// Missing in older saves = tournament.
+	wordList?: WordList;
 	moves: Move[];
 	end: EndState | null;
 };
