@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ChatMessage } from '@tally/game';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import type { Game } from '#lib/scrabble/game.svelte.ts';
 
@@ -8,14 +9,26 @@
 		game,
 		timeLeft = null,
 		me = null,
-		tilesLeft = null
+		tilesLeft = null,
+		bubbles = null
 	}: {
 		game: Game;
 		timeLeft?: number | null;
 		me?: number | null;
 		// Online once the bag is empty: tiles each player still holds.
 		tilesLeft?: number[] | null;
+		// Online: each seat's newest chat message, shown as a speech bubble under their card.
+		bubbles?: (ChatMessage | null)[] | null;
 	} = $props();
+
+	// Newest bubble, read out once for screen readers (the bubbles themselves are hidden from them).
+	const said = $derived.by(() => {
+		let seat = -1;
+		bubbles?.forEach((m, i) => {
+			if (m && (seat < 0 || m.id > bubbles![seat]!.id)) seat = i;
+		});
+		return seat < 0 ? '' : `${game.players[seat]} says: ${bubbles![seat]!.text}`;
+	});
 
 	const R = 20;
 	const RING = 2 * Math.PI * R;
@@ -76,6 +89,22 @@
 				{#key game.scores[i]}
 					<span class="animate-pop text-2xl font-bold tabular-nums">{game.scores[i]}</span>
 				{/key}
+				{#if bubbles?.[i]}
+					{@const m = bubbles[i]}
+					{#key m.id}
+						<div
+							class="pointer-events-none absolute top-full left-1 z-30 mt-2.5 w-max max-w-[calc(100%-0.5rem)] animate-pop panel border-2 px-3 py-2 text-sm font-medium break-words text-ink"
+							style={`border-color: ${color.edge}`}
+							aria-hidden="true"
+						>
+							<span
+								class="absolute -top-[7px] left-3.5 h-3 w-3 rotate-45 border-t-2 border-l-2 bg-cream"
+								style={`border-color: ${color.edge}`}
+							></span>
+							<p class="line-clamp-3">{m.text}</p>
+						</div>
+					{/key}
+				{/if}
 				{#if active}
 					<span
 						class="absolute -top-2 left-3 rounded-full bg-yellow-300 px-2 text-[10px] font-bold tracking-wide text-yellow-900 uppercase"
@@ -88,6 +117,9 @@
 			</li>
 		{/each}
 	</ul>
+	{#if bubbles}
+		<p class="sr-only" role="status">{said}</p>
+	{/if}
 
 	{#if !game.ended && (game.draft.length || game.overused.length)}
 		<div class="flex min-h-16 flex-col justify-center panel px-4 py-2.5 text-sm">

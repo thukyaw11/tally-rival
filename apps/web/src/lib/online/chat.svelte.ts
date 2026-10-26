@@ -12,6 +12,9 @@ export function mergeMessages(list: ChatMessage[], incoming: ChatMessage[]): Cha
 	return [...list, ...fresh].sort((a, b) => a.id - b.id);
 }
 
+// How long a message bubble stays by the sender's card.
+export const BUBBLE_MS = 3000;
+
 // The room's chat: saved on the server, new messages arrive by Pusher or polling.
 export class RoomChat {
 	messages = $state.raw<ChatMessage[]>([]);
@@ -21,11 +24,12 @@ export class RoomChat {
 	wide = $state(false);
 	// Last message id the player has had on screen.
 	seen = $state(0);
-	// Newest message from someone else while chat was hidden, for the pop-up bubble.
-	latest = $state.raw<ChatMessage | null>(null);
+	// Latest message per player id, shown as a bubble by their card for a few seconds.
+	bubbles = $state<Record<string, ChatMessage>>({});
 
 	private readonly session: Session;
 	private loaded = false;
+	private bubbleTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 
 	constructor(session: Session) {
 		this.session = session;
@@ -47,16 +51,24 @@ export class RoomChat {
 	merge(incoming: ChatMessage[]) {
 		const lastId = this.messages.at(-1)?.id ?? 0;
 		this.messages = mergeMessages(this.messages, incoming);
-		const fresh = incoming.filter((m) => m.id > lastId && !this.isMine(m));
+		const fresh = incoming.filter((m) => m.id > lastId);
 		// Old messages from the first load don't count as new.
 		if (!this.loaded) {
 			this.loaded = true;
 			this.markRead();
-		} else if (fresh.length) {
-			sound.play('message');
-			if (!this.visible) this.latest = fresh.at(-1)!;
+		} else {
+			for (const m of fresh) this.showBubble(m);
+			if (fresh.some((m) => !this.isMine(m))) sound.play('message');
 		}
 		if (this.visible) this.markRead();
+	}
+
+	private showBubble(m: ChatMessage) {
+		this.bubbles[m.playerId] = m;
+		clearTimeout(this.bubbleTimers[m.playerId]);
+		this.bubbleTimers[m.playerId] = setTimeout(() => {
+			if (this.bubbles[m.playerId]?.id === m.id) delete this.bubbles[m.playerId];
+		}, BUBBLE_MS);
 	}
 
 	markRead() {
@@ -65,10 +77,7 @@ export class RoomChat {
 
 	setOpen(open: boolean) {
 		this.open = open;
-		if (open) {
-			this.latest = null;
-			this.markRead();
-		}
+		if (open) this.markRead();
 	}
 
 	setWide(wide: boolean) {

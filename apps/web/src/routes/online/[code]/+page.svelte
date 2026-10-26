@@ -11,7 +11,6 @@
 	import Chat from '#lib/components/Chat.svelte';
 	import ChatButton from '#lib/components/ChatButton.svelte';
 	import ChatSheet from '#lib/components/ChatSheet.svelte';
-	import ChatToast from '#lib/components/ChatToast.svelte';
 	import DragGhost from '#lib/components/DragGhost.svelte';
 	import FinalResults from '#lib/components/FinalResults.svelte';
 	import History from '#lib/components/History.svelte';
@@ -218,6 +217,7 @@
 					me={room.me}
 					timeLeft={playing && view.turnMinutes ? timeLeft : null}
 					tilesLeft={playing && view.bagCount === 0 ? view.rackCounts : null}
+					bubbles={view.players.map((p) => room?.chat.bubbles[p.id] ?? null)}
 				/>
 				{#if playing}
 					{#if view.turnMinutes}
@@ -276,6 +276,5 @@
 			<DragGhost {drag} />
 		{/if}
 		<BlankPicker bind:this={blankPicker} />
-		<ChatToast {room} />
 	{/if}
 </main>

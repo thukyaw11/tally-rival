@@ -1,6 +1,6 @@
 import type { ChatMessage } from '@tally/game';
-import { describe, expect, it } from 'vitest';
-import { mergeMessages, RoomChat } from './chat.svelte.ts';
+import { describe, expect, it, vi } from 'vitest';
+import { BUBBLE_MS, mergeMessages, RoomChat } from './chat.svelte.ts';
 
 const msg = (id: number, playerId = 'bo', text = `m${id}`): ChatMessage => ({
 	id,
@@ -28,7 +28,6 @@ describe('RoomChat', () => {
 		expect(chat.unread).toBe(0);
 		chat.merge([msg(3), msg(4, 'ann')]);
 		expect(chat.unread).toBe(1);
-		expect(chat.latest?.id).toBe(3);
 	});
 
 	it('clears unread when opened, and stays read while visible', () => {
@@ -38,13 +37,38 @@ describe('RoomChat', () => {
 		expect(chat.unread).toBe(2);
 		chat.setOpen(true);
 		expect(chat.unread).toBe(0);
-		expect(chat.latest).toBeNull();
 		chat.merge([msg(3)]);
 		expect(chat.unread).toBe(0);
 		chat.setOpen(false);
 		chat.setWide(true);
 		chat.merge([msg(4)]);
 		expect(chat.unread).toBe(0);
-		expect(chat.latest).toBeNull();
+	});
+
+	it('shows each new message as a bubble for a few seconds, your own too', () => {
+		vi.useFakeTimers();
+		try {
+			const chat = new RoomChat(session);
+			chat.merge([msg(1)]);
+			// History from the first load never pops up.
+			expect(chat.bubbles).toEqual({});
+			chat.merge([msg(2), msg(3, 'ann')]);
+			expect(chat.bubbles.bo?.id).toBe(2);
+			expect(chat.bubbles.ann?.id).toBe(3);
+			// The same message coming back (e.g. by Pusher) doesn't pop up again.
+			vi.advanceTimersByTime(BUBBLE_MS);
+			chat.merge([msg(3, 'ann')]);
+			expect(chat.bubbles).toEqual({});
+			// A newer message replaces the old one and restarts the clock.
+			chat.merge([msg(4)]);
+			vi.advanceTimersByTime(BUBBLE_MS - 500);
+			chat.merge([msg(5)]);
+			vi.advanceTimersByTime(BUBBLE_MS - 500);
+			expect(chat.bubbles.bo?.id).toBe(5);
+			vi.advanceTimersByTime(500);
+			expect(chat.bubbles.bo).toBeUndefined();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
